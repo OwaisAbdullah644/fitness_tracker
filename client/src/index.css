@@ -1,0 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Coming+Soon&display=swap');
+@import "tailwindcss";
+
+*{
+    font-family: "Coming Soon";
+}
