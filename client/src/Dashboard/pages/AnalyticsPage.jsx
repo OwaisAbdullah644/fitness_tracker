@@ -8,8 +8,8 @@ const AnalyticsPage = () => (
     animate={{ opacity: 1, y: 0 }}
     className="p-8"
   >
-    <h2 className="text-2xl font-bold text-[#FDC700] mb-4">Analytics</h2>
-    <p className="text-gray-300">Deep insights into your data.</p>
+    <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--accent)' }}>Analytics</h2>
+    <p style={{ color: 'var(--text-muted)' }}>Deep insights into your data.</p>
   </motion.div>
 );
 

@@ -14,18 +14,19 @@ const NutritionLogsSection = () => {
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       whileHover={{ scale: 1.02 }}
-      className="bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] p-5 rounded-2xl shadow-lg"
+      className="card p-5 rounded-2xl"
     >
-      <h2 className="text-xl font-bold mb-4 text-[#FDC700]">Nutrition Today</h2>
+      <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--accent)' }}>Nutrition Today</h2>
       <ul className="space-y-3">
         {logs.map((l, i) => (
           <motion.li
             key={i}
-            whileHover={{ scale: 1.03, backgroundColor: '#333' }}
-            className="bg-black/50 p-3 rounded-xl"
+            whileHover={{ scale: 1.03, backgroundColor: 'var(--bg-card-hover)' }}
+            className="p-3 rounded-xl"
+            style={{ backgroundColor: 'var(--bg-card-hover)' }}
           >
-            <p className="font-medium">{l.date} - {l.meal}</p>
-            <p className="text-sm text-gray-300">{l.calories} cal | {l.macros}</p>
+            <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{l.date} - {l.meal}</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{l.calories} cal | {l.macros}</p>
           </motion.li>
         ))}
       </ul>

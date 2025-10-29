@@ -8,8 +8,8 @@ const WorkoutsPage = () => (
     animate={{ opacity: 1, y: 0 }}
     className="p-8"
   >
-    <h2 className="text-2xl font-bold text-[#FDC700] mb-4">Workouts</h2>
-    <p className="text-gray-300">Log and track your workouts here.</p>
+    <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--accent)' }}>Workouts</h2>
+    <p style={{ color: 'var(--text-muted)' }}>Log and track your workouts here.</p>
   </motion.div>
 );
 

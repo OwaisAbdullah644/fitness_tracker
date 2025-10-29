@@ -8,8 +8,8 @@ const NutritionPage = () => (
     animate={{ opacity: 1, y: 0 }}
     className="p-8"
   >
-    <h2 className="text-2xl font-bold text-[#FDC700] mb-4">Nutrition</h2>
-    <p className="text-gray-300">Track meals and macros.</p>
+    <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--accent)' }}>Nutrition</h2>
+    <p style={{ color: 'var(--text-muted)' }}>Track meals and macros.</p>
   </motion.div>
 );
 

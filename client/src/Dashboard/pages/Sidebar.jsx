@@ -1,4 +1,4 @@
-// src/dashboard/pages/Sidebar.jsx
+// src/Dashboard/pages/Sidebar.jsx
 import React from 'react';
 import SidebarSection from '../components/SidebarSection';
 

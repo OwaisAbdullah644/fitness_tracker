@@ -1,3 +1,4 @@
+// src/Dashboard/components/SidebarSection.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -30,18 +31,21 @@ const SidebarSection = ({ user, logout }) => {
   return (
     <motion.aside
       animate={{ width: collapsed ? 80 : 260 }}
-      className="relative bg-gradient-to-b from-[#0a0a0a] to-[#111] border-r border-[#333]"
+      className="sidebar relative"
       onMouseEnter={() => setCollapsed(false)}
       onMouseLeave={() => setCollapsed(true)}
     >
       <div className="p-5 flex items-center space-x-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-[#FDC700] to-yellow-600 rounded-xl flex items-center justify-center font-bold text-black">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-black"
+          style={{ backgroundColor: 'var(--accent)' }}
+        >
           FT
         </div>
         {!collapsed && (
           <div>
-            <h1 className="text-xl font-bold text-[#FDC700]">Fitness Tracker</h1>
-            <p className="text-xs text-gray-400">Level 12</p>
+            <h1 className="text-xl font-bold" style={{ color: 'var(--accent)' }}>Fitness Tracker</h1>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Level 12</p>
           </div>
         )}
       </div>
@@ -57,19 +61,23 @@ const SidebarSection = ({ user, logout }) => {
               whileHover={{ x: 6 }}
               className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all ${
                 active
-                  ? 'bg-[#FDC700]/20 text-[#FDC700] border border-[#FDC700]/30'
-                  : 'text-gray-400 hover:bg-[#222] hover:text-white'
+                  ? 'bg-[var(--accent)]/20 border'
+                  : 'hover:bg-[var(--bg-card-hover)]'
               }`}
+              style={{
+                color: active ? 'var(--accent)' : 'var(--text-muted)',
+                borderColor: active ? 'var(--accent)' : 'transparent',
+              }}
             >
-              <Icon className="w-5 h-5" />
+              <Icon className="w-5 h-5" style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }} />
               {!collapsed && <span className="font-medium">{label}</span>}
-              {active && !collapsed && <ChevronRight className="ml-auto w-4 h-4" />}
+              {active && !collapsed && <ChevronRight className="ml-auto w-4 h-4" style={{ color: 'var(--accent)' }} />}
             </motion.a>
           );
         })}
       </nav>
 
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#333]">
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t" style={{ borderColor: 'var(--border)' }}>
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}

@@ -1,7 +1,9 @@
-// src/dashboard/pages/Navbar.jsx
+// src/Dashboard/pages/Navbar.jsx
 import React from 'react';
 import NavbarSection from '../components/NavbarSection';
 
-const Navbar = ({ user }) => <NavbarSection user={user} />;
+const Navbar = ({ user, toggleTheme, isDark }) => (
+  <NavbarSection user={user} toggleTheme={toggleTheme} isDark={isDark} />
+);
 
 export default Navbar;
