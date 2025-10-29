@@ -62,7 +62,7 @@ export default function RegisterSectionFitness() {
 
       toast.success(res.data?.message || "Registration successful!");
       setTimeout(() => {
-        navigate("/comingsoon");
+        navigate("/login");
       }, 2000);
     } catch (error) {
       console.log(error);

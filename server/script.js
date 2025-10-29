@@ -51,5 +51,25 @@ app.post("/register", upload.single("profilePic"), async (req, res) => {
   }
 });
 
+
+app.post("/login", async(req, res) => {
+  try {
+    const {email, password} = req.body;
+    const registeredUser = await reg_model.findOne({email : email});
+    if(registeredUser){
+      const isMatch = await bcrypt.compare(password, registeredUser.password);
+      if(isMatch){
+        res.status(200).send({message: "Logged in", registeredUser});
+      }else{
+        res.status(200).send({message: "Incorrect Password"});
+      }
+    }else{
+      res.status(200).send({message: "User don't exist"});
+    }
+  } catch (error) {
+    console.log(error)
+  }
+})
+
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

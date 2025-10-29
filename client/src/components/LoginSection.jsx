@@ -1,3 +1,4 @@
+// Updated LoginSection.jsx - handle success only when login is valid
 import React, { useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
@@ -8,7 +9,7 @@ const THEME = {
   bg: "#000000",
 };
 
-export default function LoginSection() {
+export default function LoginSection({ Loginuser }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,14 +22,19 @@ export default function LoginSection() {
     try {
       const res = await axios.post("http://localhost:3000/login", data);
 
-      setEmail("");
-      setPassword("");
-
-      toast.success(res.data?.message || "Login successful!");
-      localStorage.setItem("token", res.data.token);
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 2000);
+      if (res.data.message === "Logged in") {
+        setEmail("");
+        setPassword("");
+        toast.success("Login successful!");
+        localStorage.setItem("token", res.data.token); // Store token for auth
+        Loginuser(res.data.registeredUser);
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 2000);
+      } else {
+        // Handle failure messages from backend even if status is 200 (fallback)
+        toast.error(res.data.message || "Login failed!");
+      }
     } catch (error) {
       console.log(error);
       toast.error(error.response?.data?.message || "Login failed!");
@@ -45,7 +51,7 @@ export default function LoginSection() {
         backgroundRepeat: "no-repeat",
       }}
     >
-      <Toaster position="top-right" />
+      <Toaster position="top-right" reverseOrder={false} />
       <div
         className="rounded-3xl shadow-2xl p-6 bg-black/40 max-w-md w-full mx-4"
         style={{

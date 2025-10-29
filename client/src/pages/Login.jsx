@@ -1,10 +1,10 @@
 import React from 'react'
 import LoginSection from '../components/LoginSection'
 
-const Login = () => {
+const Login = ({Loginuser}) => {
   return (
     <>
-      <LoginSection/>
+      <LoginSection Loginuser={Loginuser}/>
     </>
   )
 }
