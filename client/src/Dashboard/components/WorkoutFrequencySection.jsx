@@ -1,49 +1,68 @@
 // src/Dashboard/components/WorkoutFrequencySection.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const WorkoutFrequencySection = () => {
-  const data = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [
-      {
-        label: 'Workouts',
-        data: [1, 2, 1, 3, 2, 1, 0],
-        backgroundColor: '#FDC700',
-        borderRadius: 8,
-      },
-    ],
-  };
+  const [frequencyData, setFrequencyData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchFrequency = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get('http://localhost:3000/api/analytics/workout-frequency', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setFrequencyData(res.data);
+      } catch (err) {
+        setError('Failed to load workout frequency');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFrequency();
+  }, []);
+
+  if (loading) return <p className="text-var(--text-muted)">Loading workout frequency...</p>;
+  if (error) return <p className="text-red-500">{error}</p>;
 
   return (
-    <motion.section
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ scale: 1.02 }}
-      className="bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] p-5 rounded-2xl shadow-lg"
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-6 p-4 rounded-lg shadow-md"
+      style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
     >
-      <h2 className="text-xl font-bold mb-4 text-[#FDC700]">Weekly Activity</h2>
-      <Bar
-        data={data}
-        options={{
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-        }}
-      />
-    </motion.section>
+      <h3 className="text-xl font-semibold mb-4" style={{ color: 'var(--accent)' }}>Workout Frequency</h3>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-var(--border)">
+          <thead style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <tr>
+              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Week</th>
+              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Category</th>
+              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Frequency</th>
+              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Total Duration (min)</th>
+              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-var(--border)">
+            {frequencyData.map((data) => (
+              <tr key={data._id} className="hover:bg-var(--bg-card-hover)">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{data.week}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{data.category}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{data.frequency}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{data.duration}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <button className="text-var(--accent) hover:underline mr-2">View Details</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </motion.div>
   );
 };
 
