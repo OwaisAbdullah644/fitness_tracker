@@ -20,7 +20,7 @@ export default function LoginSection({ Loginuser }) {
     const data = { email, password };
 
     try {
-      const res = await axios.post("http://localhost:3000/login", data);
+      const res = await axios.post("https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/login", data);
 
       if (res.data.message === "Logged in") {
         setEmail("");

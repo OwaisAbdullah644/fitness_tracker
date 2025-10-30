@@ -51,7 +51,7 @@ export default function RegisterSectionFitness() {
     formData.append("profilePic", profilePic);
 
     try {
-      const res = await axios.post("http://localhost:3000/register", formData);
+      const res = await axios.post("https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/register", formData);
 
       setName("");
       setEmail("");
