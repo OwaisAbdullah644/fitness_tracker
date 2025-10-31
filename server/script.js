@@ -1,8 +1,9 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const connectDb = require("./config/connectDb");
 const reg_model = require("./models/register");
 const workout_model = require("./models/workout");
+const progress_model = require("./models/progress");
+const connectDb = require("./config/connectDb");
+const express = require("express");
+const mongoose = require("mongoose");
 const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
@@ -88,6 +89,25 @@ app.post("/workouts", async (req, res) => {
     });
     await newWorkout.save();
     res.status(201).json({ message: "Workout added successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+app.post("/progress", async (req, res) => {
+  try {
+    const { userId, date, weight, measurements, performance } = req.body;
+    const newProgress = new progress_model({
+      userId,
+      date: new Date(date),
+      weight,
+      measurements,
+      performance,
+    });
+    await newProgress.save();
+    res.status(201).json({ message: "Progress added successfully" });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Server error" });
