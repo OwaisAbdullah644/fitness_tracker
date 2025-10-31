@@ -1,4 +1,4 @@
-// Updated LoginSection.jsx - handle success only when login is valid
+// src/pages/LoginSection.jsx   (or wherever you keep it)
 import React, { useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
@@ -14,31 +14,44 @@ export default function LoginSection({ Loginuser }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const loginUser = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    const data = { email, password };
-
     try {
-      const res = await axios.post("https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/login", data);
+      const res = await axios.post(
+        "https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/login",
+        { email, password }
+      );
 
+      // ------------------- SUCCESS -------------------
       if (res.data.message === "Logged in") {
-        setEmail("");
-        setPassword("");
+        const loggedInUser = res.data.registeredUser; // <-- your backend sends this
+
+        // 1. Save full user object for App state
+        localStorage.setItem("user", JSON.stringify(loggedInUser));
+
+        // 2. Save userId for progress/workout calls
+        localStorage.setItem("userId", loggedInUser._id);
+
+        // 3. Update App state via prop
+        Loginuser(loggedInUser);
+
+        // 4. UI feedback + redirect
         toast.success("Login successful!");
-        localStorage.setItem("token", res.data.token); // Store token for auth
-        Loginuser(res.data.registeredUser);
-        localStorage.setItem("userId", res.data.registeredUser._id);
-        setTimeout(() => {
-          navigate("/dashboard");
-        }, 2000);
-      } else {
-        // Handle failure messages from backend even if status is 200 (fallback)
-        toast.error(res.data.message || "Login failed!");
+        setTimeout(() => navigate("/dashboard"), 1500);
+        return;
       }
+
+      // ------------------- FAILURE (200 but wrong msg) -------------------
+      toast.error(res.data.message || "Login failed");
     } catch (error) {
-      console.log(error);
-      toast.error(error.response?.data?.message || "Login failed!");
+      // ------------------- NETWORK / SERVER ERROR -------------------
+      const msg =
+        error.response?.data?.message ||
+        error.message ||
+        "Something went wrong";
+      toast.error(msg);
+      console.error("Login error:", error);
     }
   };
 
@@ -53,6 +66,7 @@ export default function LoginSection({ Loginuser }) {
       }}
     >
       <Toaster position="top-right" reverseOrder={false} />
+
       <div
         className="rounded-3xl shadow-2xl p-6 bg-black/40 max-w-md w-full mx-4"
         style={{
@@ -67,10 +81,12 @@ export default function LoginSection({ Loginuser }) {
         >
           Welcome Back
         </h3>
-        <form onSubmit={loginUser} className="space-y-3">
+
+        <form onSubmit={handleLogin} className="space-y-3">
           <input
             placeholder="Email"
             type="email"
+            required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-3 rounded-xl bg-black/60 border border-[#FDC700]/10 placeholder-[#aaaaaa] text-white outline-none"
@@ -78,13 +94,15 @@ export default function LoginSection({ Loginuser }) {
           <input
             placeholder="Password"
             type="password"
+            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-3 rounded-xl bg-black/60 border border-[#FDC700]/10 placeholder-[#aaaaaa] text-white outline-none"
           />
+
           <button
             type="submit"
-            className="w-full py-3 rounded-xl font-bold mt-2 hover:cursor-pointer"
+            className="w-full py-3 rounded-xl font-bold mt-2 hover:cursor-pointer transition"
             style={{
               background: THEME.accent,
               color: "#000",
@@ -93,8 +111,12 @@ export default function LoginSection({ Loginuser }) {
             Sign In
           </button>
         </form>
+
         <p className="text-center text-white mt-2">
-          Don't have an account? <Link to="/register" className="text-[#FDC700] hover:underline">Register</Link>
+          Don't have an account?{" "}
+          <Link to="/register" className="text-[#FDC700] hover:underline">
+            Register
+          </Link>
         </p>
       </div>
     </div>

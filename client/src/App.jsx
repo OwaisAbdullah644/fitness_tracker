@@ -17,42 +17,61 @@ import SettingsPage    from './Dashboard/pages/SettingsPage';
 
 const App = () => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // ← NEW: Wait for localStorage
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
-    if (stored) setUser(JSON.parse(stored));
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch (e) {
+        console.error("Failed to parse user from localStorage", e);
+      }
+    }
+    setLoading(false); // ← Done checking
   }, []);
 
-  const loginUser = data => {
+  const loginUser = (data) => {
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);
   };
 
   const logoutUser = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('userId'); // ← Also clear userId
     setUser(null);
   };
 
-  const ProtectedDashboard = ({ user, logout }) => {
-    return user ? <DashboardLayout user={user} logout={logout} /> : <Navigate to="/login" replace />;
+  // ← NEW: Show nothing (or loader) while checking auth
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg">Loading...</p>
+      </div>
+    );
+  }
+
+  const ProtectedDashboard = ({ children }) => {
+    return user ? <DashboardLayout user={user} logout={logoutUser}>{children}</DashboardLayout> : <Navigate to="/login" replace />;
   };
 
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/register" element={<Register />} />
-        <Route path="/login"    element={<Login Loginuser={loginUser} />} />
-        <Route path="/"         element={<ComingSoon />} />
+        <Route path="/login" element={<Login Loginuser={loginUser} />} />
+        <Route path="/" element={<ComingSoon />} />
 
-        <Route element={<ProtectedDashboard user={user} logout={logoutUser} />}>
-          <Route path="/dashboard"           element={<HomePage />} />
-          <Route path="/dashboard/workouts"  element={<WorkoutsPage />} />
+        {/* Protected Routes */}
+        <Route element={<ProtectedDashboard />}>
+          <Route path="/dashboard" element={<HomePage />} />
+          <Route path="/dashboard/workouts" element={<WorkoutsPage />} />
           <Route path="/dashboard/nutrition" element={<NutritionPage />} />
-          <Route path="/dashboard/progress"  element={<ProgressPage />} />
-          <Route path="/dashboard/goals"     element={<GoalsPage />} />
-          <Route path="/dashboard/schedule"  element={<SchedulePage />} />
+          <Route path="/dashboard/progress" element={<ProgressPage />} />
+          <Route path="/dashboard/goals" element={<GoalsPage />} />
+          <Route path="/dashboard/schedule" element={<SchedulePage />} />
           <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
-          <Route path="/dashboard/settings"  element={<SettingsPage />} />
+          <Route path="/dashboard/settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
