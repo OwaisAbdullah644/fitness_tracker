@@ -114,5 +114,23 @@ app.post("/progress", async (req, res) => {
   }
 });
 
+
+app.get("/progress", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).send({ message: "userId required" });
+
+    const entries = await progress_model
+      .find({ userId })
+      .sort({ date: 1 })
+      .lean();
+
+    res.send(entries);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
