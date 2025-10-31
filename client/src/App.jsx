@@ -14,6 +14,7 @@ import GoalsPage       from './Dashboard/pages/GoalsPage';
 import SchedulePage    from './Dashboard/pages/SchedulePage';
 import AnalyticsPage   from './Dashboard/pages/AnalyticsPage';
 import SettingsPage    from './Dashboard/pages/SettingsPage';
+import ProfilePage from './Dashboard/pages/ProfilePage';
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -72,6 +73,7 @@ const App = () => {
           <Route path="/dashboard/schedule" element={<SchedulePage />} />
           <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
           <Route path="/dashboard/settings" element={<SettingsPage />} />
+          <Route path="/dashboard/profile" element={<ProfilePage />} />
         </Route>
       </Routes>
     </BrowserRouter>
