@@ -1,4 +1,3 @@
-// src/pages/LoginSection.jsx   (or wherever you keep it)
 import React, { useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
@@ -23,29 +22,22 @@ export default function LoginSection({ Loginuser }) {
         { email, password }
       );
 
-      // ------------------- SUCCESS -------------------
       if (res.data.message === "Logged in") {
-        const loggedInUser = res.data.registeredUser; // <-- your backend sends this
+        const loggedInUser = res.data.registeredUser; 
 
-        // 1. Save full user object for App state
         localStorage.setItem("user", JSON.stringify(loggedInUser));
 
-        // 2. Save userId for progress/workout calls
         localStorage.setItem("userId", loggedInUser._id);
 
-        // 3. Update App state via prop
         Loginuser(loggedInUser);
 
-        // 4. UI feedback + redirect
         toast.success("Login successful!");
         setTimeout(() => navigate("/dashboard"), 1500);
         return;
       }
 
-      // ------------------- FAILURE (200 but wrong msg) -------------------
       toast.error(res.data.message || "Login failed");
     } catch (error) {
-      // ------------------- NETWORK / SERVER ERROR -------------------
       const msg =
         error.response?.data?.message ||
         error.message ||
@@ -59,7 +51,7 @@ export default function LoginSection({ Loginuser }) {
     <div
       className="relative flex items-center justify-center min-h-screen overflow-hidden"
       style={{
-        backgroundImage: "url('fitness.jpg')",
+        backgroundImage: "url('login.jpg')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
