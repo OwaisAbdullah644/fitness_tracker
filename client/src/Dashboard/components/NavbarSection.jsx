@@ -8,7 +8,7 @@ const NavbarSection = ({ user, toggleTheme, isDark }) => {
   const navigate = useNavigate();
 
   const handleProfileClick = () => {
-    navigate('/dashboard/profile');
+    navigate('/profile');
   };
 
   return (
