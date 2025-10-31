@@ -72,7 +72,7 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
 
   // Delete entry
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this progress entry?")) return;
+    // if (!window.confirm("Delete this progress entry?")) return;
 
     try {
       await axios.delete(
