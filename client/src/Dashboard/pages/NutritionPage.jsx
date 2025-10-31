@@ -1,6 +1,7 @@
 // src/Dashboard/pages/NutritionPage.jsx
 import React from 'react';
 import { motion } from 'framer-motion';
+import NutritionLogsSection from '../components/NutritionLogsSection';
 
 const NutritionPage = () => (
   <motion.div
@@ -8,8 +9,7 @@ const NutritionPage = () => (
     animate={{ opacity: 1, y: 0 }}
     className="p-8"
   >
-    <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--accent)' }}>Nutrition</h2>
-    <p style={{ color: 'var(--text-muted)' }}>Track meals and macros.</p>
+    <NutritionLogsSection/>
   </motion.div>
 );
 

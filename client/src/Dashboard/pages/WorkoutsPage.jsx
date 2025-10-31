@@ -1,6 +1,7 @@
 // src/Dashboard/pages/WorkoutsPage.jsx
 import React from 'react';
 import { motion } from 'framer-motion';
+import RecentWorkoutsSection from '../components/RecentWorkoutsSection';
 
 const WorkoutsPage = () => (
   <motion.div
@@ -8,8 +9,7 @@ const WorkoutsPage = () => (
     animate={{ opacity: 1, y: 0 }}
     className="p-8"
   >
-    <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--accent)' }}>Workouts</h2>
-    <p style={{ color: 'var(--text-muted)' }}>Log and track your workouts here.</p>
+    <RecentWorkoutsSection/>
   </motion.div>
 );
 

@@ -1,76 +1,187 @@
 // src/Dashboard/components/RecentWorkoutsSection.jsx
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { motion } from 'framer-motion';
+import React, { useState } from "react";
+import { motion } from "framer-motion";
+import axios from "axios";
+import toast, { Toaster } from "react-hot-toast";
 
 const RecentWorkoutsSection = () => {
-  const [workouts, setWorkouts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // ——— ALL useState (8 fields) ———
+  const [exerciseName, setExerciseName] = useState("");
+  const [sets, setSets] = useState("");
+  const [reps, setReps] = useState("");
+  const [weights, setWeights] = useState("");
+  const [notes, setNotes] = useState("");
+  const [category, setCategory] = useState("Other");
+  const [tags, setTags] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
-  useEffect(() => {
-    const fetchWorkouts = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
       try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:3000/api/workouts', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setWorkouts(res.data);
-      } catch (err) {
-        setError('Failed to load workouts');
-      } finally {
-        setLoading(false);
+        const res = await axios.post('https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/workouts', {
+          exerciseName,
+          sets,
+          reps,
+          weights,
+          notes,
+          category,
+          tags,
+          date
+        })
+        setExerciseName("");
+        setReps("");
+        setSets("");
+        setWeights("");
+        setNotes("");
+        setCategory("");
+        setTags("");
+        setDate("")
+        toast.success("Inserted successfully");
+        console.log(res.data.message)
+      } catch (error) {
+        toast.error("Unable to insert" + error)
+        console.log(error)
       }
-    };
-    fetchWorkouts();
-  }, []);
-
-  if (loading) return <p className="text-var(--text-muted)">Loading workouts...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-6 p-4 rounded-lg shadow-md"
-      style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
+      className="p-6 rounded-lg shadow-md"
+      style={{
+        backgroundColor: "var(--bg-card)",
+        border: "1px solid var(--border)",
+      }}
     >
-      <h3 className="text-xl font-semibold mb-4" style={{ color: 'var(--accent)' }}>Recent Workouts</h3>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-var(--border)">
-          <thead style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <tr>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Exercise</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Sets</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Reps</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Weights</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Notes</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Category</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Tags</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-var(--border)">
-            {workouts.map((workout) => (
-              <tr key={workout._id} className="hover:bg-var(--bg-card-hover)">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{workout.exerciseName}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{workout.sets}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{workout.reps}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{workout.weights}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{workout.notes}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{workout.category}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{workout.tags?.join(', ')}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{new Date(workout.date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <button className="text-var(--accent) hover:underline mr-2">Edit</button>
-                  <button className="text-red-500 hover:underline">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <h3
+        className="text-xl font-semibold mb-6"
+        style={{ color: "var(--accent)" }}
+      >
+        Add Workout
+      </h3>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          type="text"
+          placeholder="Exercise Name"
+          value={exerciseName}
+          onChange={(e) => setExerciseName(e.target.value)}
+          required
+          className="w-full px-4 py-2 rounded border"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+
+        <div className="grid grid-cols-3 gap-3">
+          <input
+            type="number"
+            placeholder="Sets"
+            value={sets}
+            onChange={(e) => setSets(e.target.value)}
+            min="1"
+            required
+            className="px-4 py-2 rounded border"
+            style={{
+              backgroundColor: "var(--input-bg)",
+              color: "var(--text-primary)",
+              borderColor: "var(--border)",
+            }}
+          />
+          <input
+            type="number"
+            placeholder="Reps"
+            value={reps}
+            onChange={(e) => setReps(e.target.value)}
+            min="1"
+            required
+            className="px-4 py-2 rounded border"
+            style={{
+              backgroundColor: "var(--input-bg)",
+              color: "var(--text-primary)",
+              borderColor: "var(--border)",
+            }}
+          />
+          <input
+            type="number"
+            placeholder="Weight (kg)"
+            value={weights}
+            onChange={(e) => setWeights(e.target.value)}
+            step="0.5"
+            className="px-4 py-2 rounded border"
+            style={{
+              backgroundColor: "var(--input-bg)",
+              color: "var(--text-primary)",
+              borderColor: "var(--border)",
+            }}
+          />
+        </div>
+
+        <textarea
+          placeholder="Notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          className="w-full px-4 py-2 rounded border"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="w-full px-4 py-2 rounded border"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        >
+          {["Strength", "Cardio", "Yoga", "HIIT", "Mobility", "Other"].map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+
+        <input
+          type="text"
+          placeholder="Tags (comma separated)"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          className="w-full px-4 py-2 rounded border"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+          className="w-full px-4 py-2 rounded border"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+
+        <button
+          type="submit"
+          className="w-full py-3 mt-4 font-medium text-white rounded-lg"
+          style={{ backgroundColor: "var(--accent)" }}
+        >
+          Save Workout
+        </button>
+      </form>
     </motion.div>
   );
 };

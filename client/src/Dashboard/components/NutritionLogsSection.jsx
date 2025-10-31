@@ -1,44 +1,53 @@
 // src/Dashboard/components/NutritionLogsSection.jsx
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { motion } from 'framer-motion';
+import React, { useState } from "react";
+import { motion } from "framer-motion";
 
 const NutritionLogsSection = () => {
-  const [nutritionLogs, setNutritionLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // ——— Dummy data (no backend) ———
+  const dummyLogs = [
+    {
+      _id: "1",
+      mealType: "Breakfast",
+      foodItems: [
+        { name: "Oatmeal", quantity: "1 cup", calories: 150, proteins: 6, carbs: 27, fats: 3 }
+      ],
+      date: "2025-10-30"
+    },
+    {
+      _id: "2",
+      mealType: "Lunch",
+      foodItems: [
+        { name: "Chicken Breast", quantity: "150g", calories: 240, proteins: 45, carbs: 0, fats: 5 },
+        { name: "Rice", quantity: "1 cup", calories: 200, proteins: 4, carbs: 45, fats: 1 }
+      ],
+      date: "2025-10-30"
+    }
+  ];
 
-  useEffect(() => {
-    const fetchNutrition = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:3000/api/nutrition', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setNutritionLogs(res.data);
-      } catch (err) {
-        setError('Failed to load nutrition logs');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchNutrition();
-  }, []);
-
-  if (loading) return <p className="text-var(--text-muted)">Loading nutrition logs...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+  // ——— useState for form (but not used in table) ———
+  const [mealType, setMealType] = useState("Breakfast");
+  const [foodItem, setFoodItem] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fats, setFats] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="mt-6 p-4 rounded-lg shadow-md"
-      style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
+      style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
     >
-      <h3 className="text-xl font-semibold mb-4" style={{ color: 'var(--accent)' }}>Nutrition Logs</h3>
+      <h3 className="text-xl font-semibold mb-4" style={{ color: "var(--accent)" }}>
+        Nutrition Logs
+      </h3>
+
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-var(--border)">
-          <thead style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        <table className="min-w-full divide-y" style={{ borderColor: "var(--border)" }}>
+          <thead style={{ backgroundColor: "var(--bg-secondary)" }}>
             <tr>
               <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Meal Type</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Food Items</th>
@@ -48,26 +57,34 @@ const NutritionLogsSection = () => {
               <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Carbs</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Fats</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-sm font-medium text-var(--text-secondary) uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-var(--border)">
-            {nutritionLogs.map((log) => (
-              <tr key={log._id} className="hover:bg-var(--bg-card-hover)">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{log.mealType}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{log.foodItems?.map(item => item.name).join(', ')}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{log.foodItems?.map(item => item.quantity).join(', ')}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{log.foodItems?.reduce((acc, item) => acc + item.calories, 0)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{log.foodItems?.reduce((acc, item) => acc + item.proteins, 0)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{log.foodItems?.reduce((acc, item) => acc + item.carbs, 0)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{log.foodItems?.reduce((acc, item) => acc + item.fats, 0)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{new Date(log.date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <button className="text-var(--accent) hover:underline mr-2">Edit</button>
-                  <button className="text-red-500 hover:underline">Delete</button>
-                </td>
-              </tr>
-            ))}
+          <tbody className="divide-y" style={{ borderColor: "var(--border)" }}>
+            {dummyLogs.map((log) => {
+              const totalCalories = log.foodItems.reduce((sum, item) => sum + item.calories, 0);
+              const totalProteins = log.foodItems.reduce((sum, item) => sum + item.proteins, 0);
+              const totalCarbs = log.foodItems.reduce((sum, item) => sum + item.carbs, 0);
+              const totalFats = log.foodItems.reduce((sum, item) => sum + item.fats, 0);
+
+              return (
+                <tr key={log._id} className="hover:bg-var(--bg-card-hover)">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{log.mealType}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">
+                    {log.foodItems.map(i => i.name).join(", ")}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">
+                    {log.foodItems.map(i => i.quantity).join(", ")}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{totalCalories}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{totalProteins}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{totalCarbs}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{totalFats}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">
+                    {new Date(log.date).toLocaleDateString()}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
