@@ -52,7 +52,7 @@ export default function RegisterSectionFitness() {
 
     try {
         const res = await axios.post("https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/register", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+        headers: { "Content-Type": "multipart/form-data" },
   });
 
       setName("");

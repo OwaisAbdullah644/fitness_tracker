@@ -2,11 +2,11 @@ const express = require("express");
 const mongoose = require("mongoose");
 const connectDb = require("./config/connectDb");
 const reg_model = require("./models/register");
+const workout_model = require("./models/workout");
 const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const bcrypt = require("bcrypt");
-
 const app = express();
 
 app.use(express.json());
@@ -70,6 +70,29 @@ app.post("/login", async(req, res) => {
     console.log(error)
   }
 })
+
+
+app.post("/workouts", async (req, res) => {
+  try {
+    const { userId, exerciseName, sets, reps, weights, notes, category, tags, date } = req.body;
+    const newWorkout = new workout_model({
+      userId,
+      exerciseName,
+      sets,
+      reps,
+      weights,
+      notes,
+      category,
+      tags,
+      date: new Date(date),
+    });
+    await newWorkout.save();
+    res.status(201).json({ message: "Workout added successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
