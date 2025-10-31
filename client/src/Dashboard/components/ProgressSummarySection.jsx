@@ -1,42 +1,59 @@
 // src/Dashboard/components/ProgressSummarySection.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import toast from 'react-hot-toast';
 
-const ProgressSummarySection = () => {
-  const [progressEntries, setProgressEntries] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+const ProgressSummarySection = ({ progressEntries = [], onProgressAdded }) => {
+  const [form, setForm] = useState({
+    date: '',
+    weight: '',
+    chest: '',
+    waist: '',
+    runTime: '',
+    liftWeight: '',
+  });
 
-  useEffect(() => {
-    fetchProgress();
-  }, []);
-
-  const fetchProgress = async () => {
+  // POST METHOD: Add new progress
+  const handleAddProgress = async (e) => {
+    e.preventDefault();
     const userId = localStorage.getItem('userId');
     if (!userId) {
-      setError('User not logged in');
-      setLoading(false);
+      toast.error('Please log in first');
       return;
     }
+
     try {
-      const res = await axios.get(
-        `https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/progress?userId=${userId}`
-      );
-      const data = Array.isArray(res.data) ? res.data : [];
-      setProgressEntries(data);
+      const payload = {
+        userId,
+        date: form.date,
+        weight: form.weight ? parseFloat(form.weight) : null,
+        measurements: {
+          chest: form.chest ? parseFloat(form.chest) : null,
+          waist: form.waist ? parseFloat(form.waist) : null,
+        },
+        performance: {
+          runTime: form.runTime ? parseFloat(form.runTime) : null,
+          liftWeight: form.liftWeight ? parseFloat(form.liftWeight) : null,
+        },
+      };
+
+      await axios.post('https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/progress', payload);
+      toast.success('Progress saved!');
+      setForm({ date: '', weight: '', chest: '', waist: '', runTime: '', liftWeight: '' });
+      if (onProgressAdded) onProgressAdded(); // Refresh parent
     } catch (err) {
-      setError('Failed to load progress');
+      toast.error('Failed to save progress');
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (loading) return <p className="text-var(--text-muted)">Loading progress...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
+  // CHART DATA
   const chartData = progressEntries.map((entry) => ({
     date: new Date(entry.date).toLocaleDateString(),
     weight: entry.weight || 0,
@@ -57,7 +74,79 @@ const ProgressSummarySection = () => {
         Progress Summary
       </h3>
 
-      {/* Table */}
+      {/* POST FORM */}
+      <form onSubmit={handleAddProgress} className="mb-6 p-4 rounded bg-var(--bg-secondary) space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <input
+            type="date"
+            name="date"
+            value={form.date}
+            onChange={handleChange}
+            required
+            className="px-3 py-2 rounded border"
+            style={{ backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+          />
+          <input
+            type="number"
+            name="weight"
+            placeholder="Weight (kg)"
+            value={form.weight}
+            onChange={handleChange}
+            step="0.1"
+            className="px-3 py-2 rounded border"
+            style={{ backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+          />
+          <input
+            type="number"
+            name="chest"
+            placeholder="Chest (cm)"
+            value={form.chest}
+            onChange={handleChange}
+            step="0.1"
+            className="px-3 py-2 rounded border"
+            style={{ backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+          />
+          <input
+            type="number"
+            name="waist"
+            placeholder="Waist (cm)"
+            value={form.waist}
+            onChange={handleChange}
+            step="0.1"
+            className="px-3 py-2 rounded border"
+            style={{ backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+          />
+          <input
+            type="number"
+            name="runTime"
+            placeholder="Run Time (min)"
+            value={form.runTime}
+            onChange={handleChange}
+            step="0.1"
+            className="px-3 py-2 rounded border"
+            style={{ backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+          />
+          <input
+            type="number"
+            name="liftWeight"
+            placeholder="Lift Weight (kg)"
+            value={form.liftWeight}
+            onChange={handleChange}
+            step="0.1"
+            className="px-3 py-2 rounded border"
+            style={{ backgroundColor: 'var(--input-bg)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+          />
+        </div>
+        <button
+          type="submit"
+          className="px-4 py-2 rounded font-medium text-white"
+          style={{ backgroundColor: 'var(--accent)' }}
+        >
+          Add Progress
+        </button>
+      </form>
+
+      {/* TABLE */}
       <div className="overflow-x-auto mb-6">
         <table className="min-w-full divide-y divide-var(--border)">
           <thead style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -83,11 +172,11 @@ const ProgressSummarySection = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">
                     {new Date(entry.date).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.weight || '-'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.measurements?.chest || '-'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.measurements?.waist || '-'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.performance?.runTime || '-'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.performance?.liftWeight || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.weight ?? '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.measurements?.chest ?? '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.measurements?.waist ?? '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.performance?.runTime ?? '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-var(--text-primary)">{entry.performance?.liftWeight ?? '-'}</td>
                 </tr>
               ))
             )}
@@ -95,7 +184,7 @@ const ProgressSummarySection = () => {
         </table>
       </div>
 
-      {/* Charts */}
+      {/* CHARTS */}
       {progressEntries.length > 0 && (
         <div>
           <h4 className="text-lg font-semibold mb-3" style={{ color: 'var(--accent)' }}>
