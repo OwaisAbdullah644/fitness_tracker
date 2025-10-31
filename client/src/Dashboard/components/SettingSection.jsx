@@ -11,14 +11,18 @@ const SettingSection = () => {
     theme: 'dark',
   });
   const [loading, setLoading] = useState(true);
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = user._id; // Assuming _id from registeredUser in login
 
   useEffect(() => {
     const fetchPreferences = async () => {
+      if (!userId) {
+        toast.error('User not logged in');
+        setLoading(false);
+        return;
+      }
       try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:3000/preferences', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await axios.get(`http://localhost:3000/preferences?userId=${userId}`);
         setPreferences(res.data);
       } catch (err) {
         toast.error('Failed to load preferences');
@@ -27,7 +31,7 @@ const SettingSection = () => {
       }
     };
     fetchPreferences();
-  }, []);
+  }, [userId]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -39,11 +43,12 @@ const SettingSection = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!userId) {
+      toast.error('User not logged in');
+      return;
+    }
     try {
-      const token = localStorage.getItem('token');
-      await axios.put('http://localhost:3000/preferences', preferences, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.put('http://localhost:3000/preferences', { ...preferences, userId });
       toast.success('Preferences updated!');
       // Apply theme to document
       document.documentElement.setAttribute('data-theme', preferences.theme);
