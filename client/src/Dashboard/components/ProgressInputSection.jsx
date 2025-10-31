@@ -1,149 +1,169 @@
 // src/Dashboard/components/ProgressInputSection.jsx
 import React, { useState } from "react";
-import { motion } from "framer-motion";
 import axios from "axios";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 const ProgressInputSection = ({ onProgressAdded }) => {
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [weight, setWeight] = useState("");
-  const [chest, setChest] = useState("");
-  const [waist, setWaist] = useState("");
-  const [runTime, setRunTime] = useState("");
-  const [liftWeight, setLiftWeight] = useState("");
+  const [form, setForm] = useState({
+    date: "",
+    weight: "",
+    chest: "",
+    waist: "",
+    runTime: "",
+    liftWeight: "",
+  });
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const userId = localStorage.getItem("userId");
     if (!userId) {
-      toast.error("User not logged in");
+      toast.error("Please log in to save progress");
       return;
     }
+
+    const payload = {
+      userId,
+      date: form.date,
+      weight: form.weight ? parseFloat(form.weight) : null,
+      measurements: {
+        chest: form.chest ? parseFloat(form.chest) : null,
+        waist: form.waist ? parseFloat(form.waist) : null,
+      },
+      performance: {
+        runTime: form.runTime ? parseFloat(form.runTime) : null,
+        liftWeight: form.liftWeight ? parseFloat(form.liftWeight) : null,
+      },
+    };
+
     try {
-      const res = await axios.post("https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/progress", {
-        userId,
-        date,
-        weight,
-        measurements: { chest, waist },
-        performance: { runTime, liftWeight },
+      await axios.post(
+        "https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/progress",
+        payload
+      );
+      toast.success("Progress saved!");
+      setForm({
+        date: "",
+        weight: "",
+        chest: "",
+        waist: "",
+        runTime: "",
+        liftWeight: "",
       });
-      setDate(new Date().toISOString().split("T")[0]);
-      setWeight("");
-      setChest("");
-      setWaist("");
-      setRunTime("");
-      setLiftWeight("");
-      toast.success("Progress added successfully");
-      if (onProgressAdded) onProgressAdded();
-    } catch (error) {
-      toast.error("Unable to add progress: " + error.message);
-      console.log(error);
+      onProgressAdded(); // Refresh parent
+    } catch (err) {
+      toast.error("Failed to save progress");
+      console.error(err);
     }
   };
 
   return (
-    <>
-      <Toaster position="top-right" />
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="p-6 rounded-lg shadow-md"
-        style={{
-          backgroundColor: "var(--bg-card)",
-          border: "1px solid var(--border)",
-        }}
+    <form
+      onSubmit={handleSubmit}
+      className="p-6 rounded-xl shadow-md space-y-5"
+      style={{ backgroundColor: "var(--bg-secondary)" }}
+    >
+      <h2 className="text-xl font-semibold" style={{ color: "var(--accent)" }}>
+        Log New Progress
+      </h2>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <input
+          type="date"
+          name="date"
+          required
+          value={form.date}
+          onChange={handleChange}
+          className="px-4 py-2 rounded border focus:ring-2 focus:ring-var(--accent)"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+        <input
+          type="number"
+          name="weight"
+          placeholder="Weight (kg)"
+          step="0.1"
+          value={form.weight}
+          onChange={handleChange}
+          className="px-4 py-2 rounded border focus:ring-2 focus:ring-var(--accent)"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+        <input
+          type="number"
+          name="chest"
+          placeholder="Chest (cm)"
+          step="0.1"
+          value={form.chest}
+          onChange={handleChange}
+          className="px-4 py-2 rounded border focus:ring-2 focus:ring-var(--accent)"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+        <input
+          type="number"
+          name="waist"
+          placeholder="Waist (cm)"
+          step="0.1"
+          value={form.waist}
+          onChange={handleChange}
+          className="px-4 py-2 rounded border focus:ring-2 focus:ring-var(--accent)"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+        <input
+          type="number"
+          name="runTime"
+          placeholder="Run Time (min)"
+          step="0.1"
+          value={form.runTime}
+          onChange={handleChange}
+          className="px-4 py-2 rounded border focus:ring-2 focus:ring-var(--accent)"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+        <input
+          type="number"
+          name="liftWeight"
+          placeholder="Lift Weight (kg)"
+          step="0.1"
+          value={form.liftWeight}
+          onChange={handleChange}
+          className="px-4 py-2 rounded border focus:ring-2 focus:ring-var(--accent)"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            color: "var(--text-primary)",
+            borderColor: "var(--border)",
+          }}
+        />
+      </div>
+
+      <button
+        type="submit"
+        className="w-full sm:w-auto px-6 py-2.5 rounded font-medium text-white transition hover:opacity-90"
+        style={{ backgroundColor: "var(--accent)" }}
       >
-        <h3 className="text-xl font-semibold mb-6" style={{ color: "var(--accent)" }}>
-          Add Progress Entry
-        </h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            required
-            className="w-full px-4 py-2 rounded border"
-            style={{
-              backgroundColor: "var(--input-bg)",
-              color: "var(--text-primary)",
-              borderColor: "var(--border)",
-            }}
-          />
-          <input
-            type="number"
-            placeholder="Weight (kg)"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            step="0.1"
-            className="w-full px-4 py-2 rounded border"
-            style={{
-              backgroundColor: "var(--input-bg)",
-              color: "var(--text-primary)",
-              borderColor: "var(--border)",
-            }}
-          />
-          <input
-            type="number"
-            placeholder="Chest (cm)"
-            value={chest}
-            onChange={(e) => setChest(e.target.value)}
-            step="0.1"
-            className="w-full px-4 py-2 rounded border"
-            style={{
-              backgroundColor: "var(--input-bg)",
-              color: "var(--text-primary)",
-              borderColor: "var(--border)",
-            }}
-          />
-          <input
-            type="number"
-            placeholder="Waist (cm)"
-            value={waist}
-            onChange={(e) => setWaist(e.target.value)}
-            step="0.1"
-            className="w-full px-4 py-2 rounded border"
-            style={{
-              backgroundColor: "var(--input-bg)",
-              color: "var(--text-primary)",
-              borderColor: "var(--border)",
-            }}
-          />
-          <input
-            type="number"
-            placeholder="Run Time (min)"
-            value={runTime}
-            onChange={(e) => setRunTime(e.target.value)}
-            step="0.1"
-            className="w-full px-4 py-2 rounded border"
-            style={{
-              backgroundColor: "var(--input-bg)",
-              color: "var(--text-primary)",
-              borderColor: "var(--border)",
-            }}
-          />
-          <input
-            type="number"
-            placeholder="Lift Weight (kg)"
-            value={liftWeight}
-            onChange={(e) => setLiftWeight(e.target.value)}
-            step="0.1"
-            className="w-full px-4 py-2 rounded border"
-            style={{
-              backgroundColor: "var(--input-bg)",
-              color: "var(--text-primary)",
-              borderColor: "var(--border)",
-            }}
-          />
-          <button
-            type="submit"
-            className="w-full py-3 mt-4 font-medium text-white rounded-lg"
-            style={{ backgroundColor: "var(--accent)" }}
-          >
-            Save Progress
-          </button>
-        </form>
-      </motion.div>
-    </>
+        Save Progress
+      </button>
+    </form>
   );
 };
 

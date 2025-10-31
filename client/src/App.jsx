@@ -17,7 +17,7 @@ import SettingsPage    from './Dashboard/pages/SettingsPage';
 
 const App = () => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // ← NEW: Wait for localStorage
+  const [loading, setLoading] = useState(true); 
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
@@ -28,7 +28,7 @@ const App = () => {
         console.error("Failed to parse user from localStorage", e);
       }
     }
-    setLoading(false); // ← Done checking
+    setLoading(false); 
   }, []);
 
   const loginUser = (data) => {
@@ -38,11 +38,11 @@ const App = () => {
 
   const logoutUser = () => {
     localStorage.removeItem('user');
-    localStorage.removeItem('userId'); // ← Also clear userId
+    localStorage.removeItem('userId'); 
     setUser(null);
   };
 
-  // ← NEW: Show nothing (or loader) while checking auth
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -62,7 +62,7 @@ const App = () => {
         <Route path="/login" element={<Login Loginuser={loginUser} />} />
         <Route path="/" element={<ComingSoon />} />
 
-        {/* Protected Routes */}
+      
         <Route element={<ProtectedDashboard />}>
           <Route path="/dashboard" element={<HomePage />} />
           <Route path="/dashboard/workouts" element={<WorkoutsPage />} />
