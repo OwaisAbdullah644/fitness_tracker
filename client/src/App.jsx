@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ComingSoon from './components/ComingSoon';
@@ -33,6 +33,10 @@ const App = () => {
     setUser(null);
   };
 
+  const ProtectedDashboard = ({ user, logout }) => {
+    return user ? <DashboardLayout user={user} logout={logout} /> : <Navigate to="/login" replace />;
+  };
+
   return (
     <BrowserRouter>
       <Routes>
@@ -40,7 +44,7 @@ const App = () => {
         <Route path="/login"    element={<Login Loginuser={loginUser} />} />
         <Route path="/"         element={<ComingSoon />} />
 
-        <Route element={<DashboardLayout user={user} logout={logoutUser} />}>
+        <Route element={<ProtectedDashboard user={user} logout={logoutUser} />}>
           <Route path="/dashboard"           element={<HomePage />} />
           <Route path="/dashboard/workouts"  element={<WorkoutsPage />} />
           <Route path="/dashboard/nutrition" element={<NutritionPage />} />
