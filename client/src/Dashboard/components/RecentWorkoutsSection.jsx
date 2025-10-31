@@ -17,8 +17,14 @@ const RecentWorkoutsSection = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      toast.error("User not logged in");
+      return;
+    }
       try {
         const res = await axios.post('https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/workouts', {
+          userId,
           exerciseName,
           sets,
           reps,
