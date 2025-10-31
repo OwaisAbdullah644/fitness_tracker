@@ -28,6 +28,7 @@ export default function LoginSection({ Loginuser }) {
         toast.success("Login successful!");
         localStorage.setItem("token", res.data.token); // Store token for auth
         Loginuser(res.data.registeredUser);
+        localStorage.setItem("userId", res.data.registeredUser._id);
         setTimeout(() => {
           navigate("/dashboard");
         }, 2000);
