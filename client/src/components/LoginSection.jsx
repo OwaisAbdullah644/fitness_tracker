@@ -51,7 +51,7 @@ export default function LoginSection({ Loginuser }) {
     <div
       className="relative flex items-center justify-center min-h-screen overflow-hidden"
       style={{
-        backgroundImage: "url('login.jpg')",
+        backgroundImage: "url('fitness.jpg')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
