@@ -48,10 +48,16 @@ export default function RegisterSectionFitness() {
     formData.append("name", name);
     formData.append("email", email);
     formData.append("password", password);
-    formData.append("profilePic", profilePic);
+    if (profilePic) {
+      formData.append("profilePic", profilePic);
+    }
 
     try {
-      const res = await axios.post("https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/register", formData);
+      const res = await axios.post("https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/register", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
 
       setName("");
       setEmail("");
@@ -66,6 +72,7 @@ export default function RegisterSectionFitness() {
       }, 2000);
     } catch (error) {
       console.log(error);
+      toast.error(error.response?.data?.message || "Registration failed!");
     }
   };
 
