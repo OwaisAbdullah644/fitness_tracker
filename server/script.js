@@ -33,11 +33,11 @@ app.post("/register", upload.single("profilePic"), async (req, res) => {
     const hashPassword = await bcrypt.hash(password, 10);
     const profilePic = req.file ? req.file.filename : "";
 
-    await reg_model.insertOne({
+    const newUser = await reg_model.create({
       name,
       email,
       password: hashPassword,
-      image: profilePic
+      profilePic: profilePic
     });
 
     res.status(201).json({ message: "User registered successfully" });
