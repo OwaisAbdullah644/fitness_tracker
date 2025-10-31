@@ -1,27 +1,17 @@
-const mongoose = require("mongoose");
+// server/models/register.js (Update existing schema if needed; already has name, email, image)
+const mongoose = require('mongoose');
 
 const registerSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true, 
-        trim: true
-    },
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true
-    },
-    password: {
-        type: String,
-        required: true
-    },
-    profilePic: {
-        type: String,
-        default: "" 
-    }
-}, { timestamps: true })
+  name: { type: String, required: true },
+  email: { type: String, unique: true, required: true },
+  password: { type: String, required: true },
+  image: { type: String, default: '' },
+  preferences: {
+    notifications: { type: Boolean, default: true },
+    units: { type: String, default: 'metric' },
+    theme: { type: String, default: 'dark' },
+  },
+  createdAt: { type: Date, default: Date.now },
+});
 
-const Register = mongoose.model("Register", registerSchema);
-
-module.exports = Register;
+module.exports = mongoose.model('register', registerSchema);

@@ -73,6 +73,7 @@ app.post("/login", async(req, res) => {
 })
 
 
+
 app.post("/workouts", async (req, res) => {
   try {
     const { userId, exerciseName, sets, reps, weights, notes, category, tags, date } = req.body;
@@ -157,12 +158,7 @@ app.delete("/progress/:id", async (req, res) => {
 });
 
 
-// Update server/index.js (or app.js) - Add settings endpoints without JWT
-// ... other imports and code ...
 
-// Keep original register and login as is
-
-// Settings endpoints (use userId from query/body - note: this is insecure without auth)
 app.get("/preferences", async (req, res) => {
   try {
     const { userId } = req.query;
@@ -186,6 +182,36 @@ app.put("/preferences", async (req, res) => {
     ).select('preferences');
     if (!updated) return res.status(404).json({ message: "User not found" });
     res.json(updated.preferences);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+app.get("/profile", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+    const user = await reg_model.findById(userId).select('name email image');
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.put("/profile", upload.single("profilePic"), async (req, res) => {
+  try {
+    const { userId, name, email } = req.body;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+    const updateData = { name, email };
+    if (req.file) {
+      updateData.image = req.file.filename;
+    }
+    const updated = await reg_model.findByIdAndUpdate(userId, updateData, { new: true }).select('name email image');
+    if (!updated) return res.status(404).json({ message: "User not found" });
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
