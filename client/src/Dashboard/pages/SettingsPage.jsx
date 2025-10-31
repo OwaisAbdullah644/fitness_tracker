@@ -1,6 +1,7 @@
-// src/Dashboard/pages/SettingsPage.jsx
+// src/Dashboard/pages/SettingsPage.jsx (Updated to include SettingSection)
 import React from 'react';
 import { motion } from 'framer-motion';
+import SettingSection from '../components/SettingSection';
 
 const SettingsPage = () => (
   <motion.div
@@ -10,6 +11,7 @@ const SettingsPage = () => (
   >
     <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--accent)' }}>Settings</h2>
     <p style={{ color: 'var(--text-muted)' }}>Customize your experience.</p>
+    <SettingSection />
   </motion.div>
 );
 

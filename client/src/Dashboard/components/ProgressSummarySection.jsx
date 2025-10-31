@@ -18,11 +18,10 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
 
-  // Start editing
   const handleEdit = (entry) => {
     setEditingId(entry._id);
     setEditForm({
-      date: entry.date.split("T")[0], // YYYY-MM-DD
+      date: entry.date.split("T")[0],
       weight: entry.weight || "",
       chest: entry.measurements?.chest || "",
       waist: entry.measurements?.waist || "",
@@ -31,13 +30,11 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
     });
   };
 
-  // Cancel editing
   const handleCancel = () => {
     setEditingId(null);
     setEditForm({});
   };
 
-  // Update entry
   const handleUpdate = async () => {
     const userId = localStorage.getItem("userId");
     if (!userId) return toast.error("Login required");
@@ -63,23 +60,19 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
       );
       toast.success("Progress updated!");
       setEditingId(null);
-      onProgressUpdate(); // Refresh parent
+      // onProgressUpdate();
     } catch (err) {
       toast.error("Update failed");
       console.error(err);
     }
   };
 
-  // Delete entry
   const handleDelete = async (id) => {
-    // if (!window.confirm("Delete this progress entry?")) return;
-
     try {
       await axios.delete(
         `https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/progress/${id}`
       );
       toast.success("Deleted!");
-      onProgressUpdate();
     } catch (err) {
       toast.error("Delete failed");
       console.error(err);
@@ -113,7 +106,6 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
         Progress Summary
       </h3>
 
-      {/* Table with Edit/Delete */}
       <div className="overflow-x-auto mb-8">
         <table className="min-w-full divide-y divide-var(--border)">
           <thead style={{ backgroundColor: "var(--bg-secondary)" }}>
@@ -143,7 +135,7 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
                 <tr key={e._id} className="hover:bg-var(--bg-card-hover)">
                   {editingId === e._id ? (
                     <>
-                      {/* EDIT MODE: Inputs */}
+                      {/* EDIT MODE */}
                       <td className="px-4 py-3">
                         <input
                           type="date"
@@ -258,7 +250,6 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
                     </>
                   ) : (
                     <>
-                      {/* VIEW MODE */}
                       <td className="px-4 py-3 text-sm">
                         {new Date(e.date).toLocaleDateString()}
                       </td>
@@ -293,7 +284,6 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
         </table>
       </div>
 
-      {/* Charts – REQUIRED */}
       {progressEntries.length > 0 && (
         <div>
           <h4 className="text-lg font-semibold mb-4" style={{ color: "var(--accent)" }}>
