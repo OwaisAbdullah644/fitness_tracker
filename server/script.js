@@ -37,7 +37,7 @@ app.post("/register", upload.single("profilePic"), async (req, res) => {
       name,
       email,
       password: hashPassword,
-      profilePic
+      image: profilePic
     });
 
     res.status(201).json({ message: "User registered successfully" });
@@ -51,25 +51,25 @@ app.post("/register", upload.single("profilePic"), async (req, res) => {
   }
 });
 
-app.post("/login", async (req, res) => {
+
+app.post("/login", async(req, res) => {
   try {
-    const { email, password } = req.body;
-    const registeredUser = await reg_model.findOne({ email });
-    if (registeredUser) {
+    const {email, password} = req.body;
+    const registeredUser = await reg_model.findOne({email : email});
+    if(registeredUser){
       const isMatch = await bcrypt.compare(password, registeredUser.password);
-      if (isMatch) {
-        res.status(200).json({ message: "Logged in", registeredUser });
-      } else {
-        res.status(401).json({ message: "Incorrect Password" });
+      if(isMatch){
+        res.status(200).send({message: "Logged in", registeredUser});
+      }else{
+        res.status(200).send({message: "Incorrect Password"});
       }
-    } else {
-      res.status(404).json({ message: "User don't exist" });
+    }else{
+      res.status(200).send({message: "User don't exist"});
     }
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Server error" });
+    console.log(error)
   }
-});
+})
 
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
