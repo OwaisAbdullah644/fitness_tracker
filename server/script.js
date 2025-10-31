@@ -132,5 +132,29 @@ app.get("/progress", async (req, res) => {
   }
 });
 
+
+
+app.put("/progress/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await progress_model.findByIdAndUpdate(id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: "Not found" });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.delete("/progress/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await progress_model.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

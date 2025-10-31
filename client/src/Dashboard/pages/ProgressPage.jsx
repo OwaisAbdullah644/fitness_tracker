@@ -62,7 +62,10 @@ const ProgressPage = () => {
         {loading ? (
           <p className="text-center text-var(--text-muted)">Loading progress...</p>
         ) : (
-          <ProgressSummarySection progressEntries={progressEntries} />
+          <ProgressSummarySection
+  progressEntries={progressEntries}
+  onProgressUpdate={fetchProgress}
+/>
         )}
       </div>
     </motion.div>
