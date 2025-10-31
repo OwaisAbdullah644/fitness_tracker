@@ -1,4 +1,3 @@
-// src/Dashboard/components/SidebarSection.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {

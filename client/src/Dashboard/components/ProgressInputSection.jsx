@@ -53,7 +53,7 @@ const ProgressInputSection = ({ onProgressAdded }) => {
         runTime: "",
         liftWeight: "",
       });
-      onProgressAdded(); // Refresh parent
+      onProgressAdded();
     } catch (err) {
       toast.error("Failed to save progress");
       console.error(err);
