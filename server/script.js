@@ -1,4 +1,5 @@
 // script.js
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -10,15 +11,12 @@ const { stringify } = require("csv-stringify");
 
 const app = express();
 
-app.use(express.json());
+// ------------------- Middleware -------------------
+app.use(express.json({ limit: "10mb" }));
 app.use(cors());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-mongoose.connect("mongodb://127.0.0.1:27017/fitness", {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-
+// ------------------- Multer -------------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "./uploads"),
   filename: (req, file, cb) => {
@@ -28,57 +26,66 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-const reg_model = require("./models/register");
-const workout_model = require("./models/workout");
-const progress_model = require("./models/progress");
-const nutrition_model = require("./models/nutrition");
+// ------------------- Models -------------------
+const User = require("./models/register");
+const Workout = require("./models/workout");
+const Progress = require("./models/progress");
+const Nutrition = require("./models/nutrition");
 
+// ------------------- DB Connect -------------------
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/fitness";
+
+mongoose.connect(MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+mongoose.connection.on("connected", () => console.log("MongoDB connected"));
+mongoose.connection.on("error", (err) => console.error("MongoDB error:", err));
+
+// ------------------- Routes -------------------
+
+// Register
 app.post("/register", upload.single("profilePic"), async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    const hashPassword = await bcrypt.hash(password, 10);
-    const profilePic = req.file ? req.file.filename : "";
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: "Email already registered" });
 
-    await reg_model.insertOne({
-      name,
-      email,
-      password: hashPassword,
-      image: profilePic,
-    });
+    const hash = await bcrypt.hash(password, 10);
+    const image = req.file ? req.file.filename : "";
 
-    res.status(201).json({ message: "User registered successfully" });
-  } catch (error) {
-    if (error.code === 11000) {
-      res.status(400).json({ message: "Email already registered" });
-    } else {
-      res.status(500).json({ message: "Server error" });
-    }
-  }
-});
-
-app.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await reg_model.findOne({ email });
-    if (user) {
-      const match = await bcrypt.compare(password, user.password);
-      if (match) {
-        res.json({ message: "Logged in", registeredUser: user });
-      } else {
-        res.json({ message: "Incorrect Password" });
-      }
-    } else {
-      res.json({ message: "User don't exist" });
-    }
-  } catch (error) {
+    await User.create({ name, email, password: hash, image });
+    res.status(201).json({ message: "User registered" });
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+// Login
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) return res.status(400).json({ message: "User not found" });
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(400).json({ message: "Incorrect password" });
+
+    const payload = { _id: user._id, name: user.name, email: user.email, image: user.image };
+    res.json({ message: "Logged in", user: payload });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Workouts
 app.post("/workouts", async (req, res) => {
   try {
     const { userId, exerciseName, sets, reps, weights, notes, category, tags, date } = req.body;
-    const newWorkout = new workout_model({
+    await Workout.create({
       userId,
       exerciseName,
       sets,
@@ -86,29 +93,24 @@ app.post("/workouts", async (req, res) => {
       weights,
       notes,
       category,
-      tags,
+      tags: tags ? tags.split(",") : [],
       date: new Date(date),
     });
-    await newWorkout.save();
     res.status(201).json({ message: "Workout added" });
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+// Progress
 app.post("/progress", async (req, res) => {
   try {
     const { userId, date, weight, measurements, performance } = req.body;
-    const newProgress = new progress_model({
-      userId,
-      date: new Date(date),
-      weight,
-      measurements,
-      performance,
-    });
-    await newProgress.save();
+    await Progress.create({ userId, date: new Date(date), weight, measurements, performance });
     res.status(201).json({ message: "Progress added" });
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -117,9 +119,10 @@ app.get("/progress", async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ message: "userId required" });
-    const entries = await progress_model.find({ userId }).sort({ date: 1 }).lean();
+    const entries = await Progress.find({ userId }).sort({ date: 1 }).lean();
     res.json(entries);
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -127,10 +130,11 @@ app.get("/progress", async (req, res) => {
 app.put("/progress/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await progress_model.findByIdAndUpdate(id, req.body, { new: true });
+    const updated = await Progress.findByIdAndUpdate(id, req.body, { new: true });
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -138,22 +142,25 @@ app.put("/progress/:id", async (req, res) => {
 app.delete("/progress/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await progress_model.findByIdAndDelete(id);
+    const deleted = await Progress.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: "Not found" });
     res.json({ message: "Deleted" });
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+// Profile
 app.get("/profile", async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ message: "userId required" });
-    const user = await reg_model.findById(userId).select("name email image");
+    const user = await User.findById(userId).select("name email image");
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -164,32 +171,30 @@ app.put("/profile", upload.single("profilePic"), async (req, res) => {
     if (!userId) return res.status(400).json({ message: "userId required" });
     const update = { name, email };
     if (req.file) update.image = req.file.filename;
-    const updated = await reg_model.findByIdAndUpdate(userId, update, { new: true }).select("name email image");
+    const updated = await User.findByIdAndUpdate(userId, update, { new: true }).select("name email image");
     if (!updated) return res.status(404).json({ message: "User not found" });
     res.json(updated);
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// -------------------------------------------------
-// NUTRITION – plain routes (no /api)
-// -------------------------------------------------
+// ------------------- NUTRITION -------------------
 app.post("/nutrition", async (req, res) => {
   try {
     const { userId, mealType, foodItems, date, notes } = req.body;
     if (!userId || !mealType || !Array.isArray(foodItems) || foodItems.length === 0 || !date)
       return res.status(400).json({ message: "Invalid data" });
 
-    const newLog = new nutrition_model({
+    const log = await Nutrition.create({
       userId,
       mealType,
       foodItems,
       date: new Date(date),
       notes,
     });
-    await newLog.save();
-    res.status(201).json({ message: "Created", log: newLog });
+    res.status(201).json({ message: "Created", log });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Server error" });
@@ -201,11 +206,7 @@ app.get("/nutrition", async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ message: "userId required" });
 
-    const logs = await nutrition_model
-      .find({ userId })
-      .sort({ date: -1 })
-      .lean();
-
+    const logs = await Nutrition.find({ userId }).sort({ date: -1 }).lean();
     const enriched = logs.map(log => ({
       ...log,
       totalCalories: log.foodItems.reduce((s, i) => s + i.calories, 0),
@@ -213,7 +214,6 @@ app.get("/nutrition", async (req, res) => {
       totalCarbs: log.foodItems.reduce((s, i) => s + i.carbs, 0),
       totalFats: log.foodItems.reduce((s, i) => s + i.fats, 0),
     }));
-
     res.json(enriched);
   } catch (e) {
     console.error(e);
@@ -225,7 +225,7 @@ app.put("/nutrition/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { mealType, foodItems, date, notes } = req.body;
-    const updated = await nutrition_model.findByIdAndUpdate(
+    const updated = await Nutrition.findByIdAndUpdate(
       id,
       { mealType, foodItems, date: new Date(date), notes },
       { new: true }
@@ -241,7 +241,7 @@ app.put("/nutrition/:id", async (req, res) => {
 app.delete("/nutrition/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await nutrition_model.findByIdAndDelete(id);
+    const deleted = await Nutrition.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: "Not found" });
     res.json({ message: "Deleted" });
   } catch (e) {
@@ -250,6 +250,8 @@ app.delete("/nutrition/:id", async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+// ------------------- Start -------------------
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
