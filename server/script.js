@@ -1,151 +1,84 @@
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const multer = require("multer");
-const bcrypt = require("bcrypt");
-const mongoose = require("mongoose");
-const cron = require("node-cron");
-
+const reg_model = require("./models/register");
+const workout_model = require("./models/workout");
+const progress_model = require("./models/progress");
 const connectDb = require("./config/connectDb");
-connectDb();
-
-const User = require("./models/register");
-const Workout = require("./models/workout");
-const Progress = require("./models/progress");
-const Nutrition = require("./models/nutrition");
-const Notification = require("./models/notification");
-
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const multer = require("multer");
+const path = require("path");
+const bcrypt = require("bcrypt");
 const app = express();
 
-// Enable CORS for your frontend
-app.use(cors({
-  origin: "https://fitness-tracker-olive-six.vercel.app",
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type"]
-}));
-
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors());
+connectDb();
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "./uploads"),
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${file.fieldname}-${unique}${path.extname(file.originalname)}`);
+  destination: function (req, file, cb) {
+    cb(null, "./uploads");
   },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
 });
-const upload = multer({ storage });
+
+const upload = multer({ storage: storage });
 
 app.post("/register", upload.single("profilePic"), async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    if (!name || !email || !password)
-      return res.status(400).send({ message: "All fields required" });
-
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).send({ message: "Email already registered" });
-
-    const hash = await bcrypt.hash(password, 12);
+    const hashPassword = await bcrypt.hash(password, 10);
     const profilePic = req.file ? req.file.filename : "";
 
-    const user = await User.create({
+    await reg_model.insertOne({
       name,
       email,
-      password: hash,
-      image: profilePic,
-      preferences: { notifications: true, units: "kg", theme: "light" },
+      password: hashPassword,
+      image: profilePic
     });
 
-    res.status(201).send({ message: "User registered", userId: user._id });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
+    res.status(201).json({ message: "User registered successfully" });
+  } catch (error) {
+    if (error.code === 11000) {
+      res.status(400).json({ message: "Email already registered" });
+    } else {
+      console.log(error);
+      res.status(500).json({ message: "Server error", error });
+    }
   }
 });
 
-app.post("/login", async (req, res) => {
+
+app.post("/login", async(req, res) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) return res.status(400).send({ message: "User not found" });
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).send({ message: "Incorrect password" });
-
-    const payload = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      image: user.image,
-    };
-    res.send({ message: "Logged in", user: payload });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
+    const {email, password} = req.body;
+    const registeredUser = await reg_model.findOne({email : email});
+    if(registeredUser){
+      const isMatch = await bcrypt.compare(password, registeredUser.password);
+      if(isMatch){
+        res.status(200).send({message: "Logged in", registeredUser});
+      }else{
+        res.status(200).send({message: "Incorrect Password"});
+      }
+    }else{
+      res.status(200).send({message: "User don't exist"});
+    }
+  } catch (error) {
+    console.log(error)
   }
-});
+})
 
-app.get("/profile", async (req, res) => {
-  const { userId } = req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
 
-  const user = await User.findById(userId);
-  if (!user) return res.status(401).send({ message: "Invalid user" });
-
-  const { _id, name, email, image } = user;
-  res.send({ _id, name, email, image });
-});
-
-app.post("/profile", upload.single("profilePic"), async (req, res) => {
-  try {
-    const { userId, name, email } = req.body;
-    if (!userId) return res.status(401).send({ message: "userId required" });
-
-    const update = { name, email };
-    if (req.file) update.image = req.file.filename;
-
-    const updated = await User.findByIdAndUpdate(userId, update, {
-      new: true,
-    }).select("name email image");
-
-    res.send(updated);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-app.get("/preferences", async (req, res) => {
-  const { userId } = req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const user = await User.findById(userId);
-  if (!user) return res.status(401).send({ message: "Invalid user" });
-
-  res.send(user.preferences);
-});
-
-app.post("/preferences", async (req, res) => {
-  const { userId, notifications, units, theme } = req.body;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const updated = await User.findByIdAndUpdate(
-    userId,
-    {
-      "preferences.notifications": notifications,
-      "preferences.units": units,
-      "preferences.theme": theme,
-    },
-    { new: true }
-  ).select("preferences");
-
-  res.send(updated.preferences);
-});
 
 app.post("/workouts", async (req, res) => {
   try {
-    const {
+    const { userId, exerciseName, sets, reps, weights, notes, category, tags, date } = req.body;
+
+    const newWorkout = new workout_model({
       userId,
       exerciseName,
       sets,
@@ -154,345 +87,225 @@ app.post("/workouts", async (req, res) => {
       notes,
       category,
       tags,
-      date,
-    } = req.body;
-
-    const workout = await Workout.create({
-      userId,
-      exerciseName,
-      sets,
-      reps,
-      weights,
-      notes,
-      category,
-      tags: tags ? tags.split(",") : [],
       date: new Date(date),
     });
 
-    const user = await User.findById(userId);
-    if (user && user.preferences.notifications) {
-      const newNotification = new Notification({
-        userId,
-        type: 'activity',
-        message: `Workout completed: ${exerciseName}`,
-      });
-      await newNotification.save();
-    }
+    await newWorkout.save();
 
-    res.status(201).send(workout);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
+    // ✅ Create a notification automatically
+    await Notification.create({
+      userId,
+      type: "activity",
+      message: `Workout "${exerciseName}" added successfully.`,
+    });
+
+    res.status(201).json({ message: "Workout added successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-app.get("/workouts", async (req, res) => {
-  const { userId, page = 1, limit = 20 } = req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const workouts = await Workout.find({ userId })
-    .sort({ date: -1 })
-    .limit(+limit)
-    .skip((+page - 1) * +limit)
-    .lean();
-  res.send(workouts);
-});
-
-app.post("/workouts/:id", async (req, res) => {
-  const { userId } = req.body;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const workout = await Workout.findOneAndUpdate(
-    { _id: req.params.id, userId },
-    req.body,
-    { new: true }
-  );
-  if (!workout) return res.status(404).send({ message: "Not found" });
-  res.send(workout);
-});
-
-app.delete("/workouts/:id", async (req, res) => {
-  const { userId } = req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const workout = await Workout.findOneAndDelete({
-    _id: req.params.id,
-    userId,
-  });
-  if (!workout) return res.status(404).send({ message: "Not found" });
-  res.send({ message: "Deleted" });
-});
 
 app.post("/progress", async (req, res) => {
-  const { userId, date, weight, measurements, performance } = req.body;
-  const prog = await Progress.create({
-    userId,
-    date: new Date(date),
-    weight,
-    measurements,
-    performance,
-  });
+  try {
+    const { userId, date, weight, measurements, performance } = req.body;
 
-  const user = await User.findById(userId);
-  if (user && user.preferences.notifications) {
-    const newNotification = new Notification({
+    const newProgress = new progress_model({
       userId,
-      type: 'activity',
-      message: `New progress logged: Weight ${weight}kg`,
+      date: new Date(date),
+      weight,
+      measurements,
+      performance,
     });
-    await newNotification.save();
-  }
 
-  res.status(201).send(prog);
+    await newProgress.save();
+
+    // ✅ Add a notification for progress tracking
+    await Notification.create({
+      userId,
+      type: "reminder",
+      message: `Progress updated for ${new Date(date).toLocaleDateString()}.`,
+    });
+
+    res.status(201).json({ message: "Progress added successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Server error" });
+  }
 });
+
+
 
 app.get("/progress", async (req, res) => {
-  const { userId } = req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const entries = await Progress.find({ userId })
-    .sort({ date: 1 })
-    .lean();
-  res.send(entries);
-});
-
-app.post("/progress/:id", async (req, res) => {
-  const { userId } = req.body;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const prog = await Progress.findOneAndUpdate(
-    { _id: req.params.id, userId },
-    req.body,
-    { new: true }
-  );
-  if (!prog) return res.status(404).send({ message: "Not found" });
-  res.send(prog);
-});
-
-app.delete("/progress/:id", async (req, res) => {
-  const { userId } = req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const prog = await Progress.findOneAndDelete({
-    _id: req.params.id,
-    userId,
-  });
-  if (!prog) return res.status(404).send({ message: "Not found" });
-  res.send({ message: "Deleted" });
-});
-
-app.post("/nutrition", async (req, res) => {
-  const { userId, mealType, foodItems, date, notes } = req.body;
-  if (!mealType || !Array.isArray(foodItems) || foodItems.length === 0 || !date)
-    return res.status(400).send({ message: "Missing required fields" });
-
-  for (const i of foodItems) {
-    if (
-      !i.name ||
-      !i.quantity ||
-      typeof i.calories !== "number" ||
-      i.calories < 0
-    )
-      return res.status(400).send({ message: "Invalid food item" });
-  }
-
-  const log = await Nutrition.create({
-    userId,
-    mealType,
-    foodItems,
-    date: new Date(date),
-    notes,
-  });
-
-  const user = await User.findById(userId);
-  if (user && user.preferences.notifications) {
-    const newNotification = new Notification({
-      userId,
-      type: 'activity',
-      message: `New nutrition log for ${mealType}`,
-    });
-    await newNotification.save();
-  }
-
-  res.status(201).send(log);
-});
-
-app.get("/nutrition", async (req, res) => {
-  const { userId, page = 1, limit = 20, mealType, date } = req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const filter = { userId };
-  if (mealType) filter.mealType = mealType;
-  if (date) {
-    const start = new Date(date);
-    const end = new Date(start);
-    end.setHours(23, 59, 59, 999);
-    filter.date = { $gte: start, $lte: end };
-  }
-
-  const logs = await Nutrition.find(filter)
-    .sort({ date: -1 })
-    .limit(+limit)
-    .skip((+page - 1) * +limit)
-    .lean();
-
-  const enriched = logs.map((l) => ({
-    ...l,
-    totalCalories: l.foodItems.reduce((s, i) => s + i.calories, 0),
-    totalProteins: l.foodItems.reduce((s, i) => s + i.proteins, 0),
-    totalCarbs: l.foodItems.reduce((s, i) => s + i.carbs, 0),
-    totalFats: l.foodItems.reduce((s, i) => s + i.fats, 0),
-  }));
-
-  res.send(enriched);
-});
-
-app.post("/nutrition/:id", async (req, res) => {
-  const { userId, mealType, foodItems, date, notes } = req.body;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-  if (!mealType || !Array.isArray(foodItems) || foodItems.length === 0 || !date)
-    return res.status(400).send({ message: "Missing required fields" });
-
-  for (const i of foodItems) {
-    if (
-      !i.name ||
-      !i.quantity ||
-      typeof i.calories !== "number" ||
-      i.calories < 0
-    )
-      return res.status(400).send({ message: "Invalid food item" });
-  }
-
-  const log = await Nutrition.findOneAndUpdate(
-    { _id: req.params.id, userId },
-    { mealType, foodItems, date: new Date(date), notes },
-    { new: true }
-  );
-  if (!log) return res.status(404).send({ message: "Not found" });
-  res.send(log);
-});
-
-app.delete("/nutrition/:id", async (req, res) => {
-  const { userId } = req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const log = await Nutrition.findOneAndDelete({
-    _id: req.params.id,
-    userId,
-  });
-  if (!log) return res.status(404).send({ message: "Not found" });
-  res.send({ message: "Deleted" });
-});
-
-app.get("/analytics/nutrition", async (req, res) => {
-  const { userId, period = "week" } = req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const now = new Date();
-  let start;
-
-  if (period === "week") start = new Date(now.setDate(now.getDate() - 7));
-  else if (period === "month")
-    start = new Date(now.setMonth(now.getMonth() - 1));
-  else start = new Date(now.setFullYear(now.getFullYear() - 1));
-
-  const data = await Nutrition.aggregate([
-    { $match: { userId: new mongoose.Types.ObjectId(userId), date: { $gte: start } } },
-    {
-      $group: {
-        _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-        totalCalories: { $sum: { $sum: "$foodItems.calories" } },
-        totalProteins: { $sum: { $sum: "$foodItems.proteins" } },
-        totalCarbs: { $sum: { $sum: "$foodItems.carbs" } },
-        totalFats: { $sum: { $sum: "$foodItems.fats" } },
-        meals: { $sum: 1 },
-      },
-    },
-    { $sort: { _id: -1 } },
-  ]);
-
-  res.send(data);
-});
-
-cron.schedule("0 8 * * *", async () => {
-  console.log("Running daily meal reminder job...");
-  try {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const users = await User.find({ "preferences.notifications": true });
-    for (const user of users) {
-      const existing = await Notification.findOne({
-        userId: user._id,
-        type: "reminder",
-        date: { $gte: todayStart },
-      });
-      if (!existing) {
-        const newNotification = new Notification({
-          userId: user._id,
-          type: "reminder",
-          message: "Daily reminder: Log your meals and workouts today!",
-        });
-        await newNotification.save();
-      }
-    }
-  } catch (err) {
-    console.error("Reminder job error:", err);
-  }
-});
-
-app.get("/notifications", async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).send({ message: "userId required" });
 
-    const notifications = await Notification
+    const entries = await progress_model
       .find({ userId })
+      .sort({ date: 1 })
+      .lean();
+
+    res.send(entries);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+app.put("/progress/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await progress_model.findByIdAndUpdate(id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: "Not found" });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.delete("/progress/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await progress_model.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Not found" });
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+app.get("/preferences", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+    const user = await reg_model.findById(userId).select('preferences');
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user.preferences);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.put("/preferences", async (req, res) => {
+  try {
+    const { userId, notifications, units, theme } = req.body;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+    const updated = await reg_model.findByIdAndUpdate(
+      userId,
+      { 'preferences.notifications': notifications, 'preferences.units': units, 'preferences.theme': theme },
+      { new: true }
+    ).select('preferences');
+    if (!updated) return res.status(404).json({ message: "User not found" });
+    res.json(updated.preferences);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+app.get("/profile", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+    const user = await reg_model.findById(userId).select('name email image');
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.put("/profile", upload.single("profilePic"), async (req, res) => {
+  try {
+    const { userId, name, email } = req.body;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+    const updateData = { name, email };
+    if (req.file) {
+      updateData.image = req.file.filename;
+    }
+    const updated = await reg_model.findByIdAndUpdate(userId, updateData, { new: true }).select('name email image');
+    if (!updated) return res.status(404).json({ message: "User not found" });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+app.get("/notifications", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+
+    const notifications = await Notification.find({ userId })
       .sort({ date: -1 })
       .lean();
 
-    res.send(notifications);
+    res.json(notifications);
   } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
+    console.error("GET /notifications error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// ➕ Create a new notification (optional utility for testing)
+app.post("/notifications", async (req, res) => {
+  try {
+    const { userId, type, message } = req.body;
+    if (!userId || !type || !message)
+      return res.status(400).json({ message: "userId, type, and message required" });
+
+    const notif = new Notification({ userId, type, message });
+    await notif.save();
+
+    res.status(201).json(notif);
+  } catch (err) {
+    console.error("POST /notifications error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
 app.post("/notifications/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId } = req.body;
-    if (!userId) return res.status(400).send({ message: "userId required" });
 
-    const updated = await Notification.findOneAndUpdate(
-      { _id: id, userId },
+    const notif = await Notification.findByIdAndUpdate(
+      id,
       { isRead: true },
       { new: true }
     );
 
-    if (!updated) return res.status(404).send({ message: "Notification not found" });
-    res.send(updated);
+    if (!notif) return res.status(404).send({ message: "Notification not found" });
+    res.send({ message: "Marked as read", notif });
   } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
+    console.error("POST /notifications/:id error:", err);
+    res.status(500).send({ message: "Server error", error: err.message });
   }
 });
 
+// 🗑️ Delete a notification
 app.delete("/notifications/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId } = req.query;
-    if (!userId) return res.status(400).send({ message: "userId required" });
 
-    const deleted = await Notification.findOneAndDelete({ _id: id, userId });
+    const deleted = await Notification.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Notification not found" });
 
-    if (!deleted) return res.status(404).send({ message: "Notification not found" });
-    res.send({ message: "Deleted" });
+    res.json({ message: "Notification deleted" });
   } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
+    console.error("DELETE /notifications/:id error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
-const PORT = process.env.PORT || 3000;
+
+const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
