@@ -1,85 +1,158 @@
-const reg_model = require("./models/register");
-const workout_model = require("./models/workout");
-const progress_model = require("./models/progress");
-const nutrition_model = require("./models/nutrition");
-const connectDb = require("./config/connectDb");
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
-const multer = require("multer");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
 const path = require("path");
+const multer = require("multer");
 const bcrypt = require("bcrypt");
+const mongoose = require("mongoose");
+const cron = require("node-cron");
+const { StringDecoder } = require("string_decoder");
+const { stringify } = require("csv-stringify");
+
+const connectDb = require("./config/connectDb");
+connectDb();
+
+const User = require("./models/register");
+const Workout = require("./models/workout");
+const Progress = require("./models/progress");
+const Nutrition = require("./models/nutrition");
+
+
 const app = express();
 
-app.use(express.send());
+app.use(helmet());
 app.use(cors());
-connectDb();
+app.use(morgan("dev"));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "./uploads");
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
 
-const upload = multer({ storage: storage });
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "./uploads"),
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${file.fieldname}-${unique}${path.extname(file.originalname)}`);
+  },
+});
+const upload = multer({ storage });
+
+
+const authMiddleware = async (req, res, next) => {
+  const { userId } = req.body || req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
+  const user = await User.findById(userId);
+  if (!user) return res.status(401).send({ message: "Invalid user" });
+
+  req.user = user;
+  next();
+};
+
 
 app.post("/register", upload.single("profilePic"), async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    const hashPassword = await bcrypt.hash(password, 10);
+    if (!name || !email || !password)
+      return res.status(400).send({ message: "All fields required" });
+
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).send({ message: "Email already registered" });
+
+    const hash = await bcrypt.hash(password, 12);
     const profilePic = req.file ? req.file.filename : "";
 
-    await reg_model.insertOne({
+    const user = await User.create({
       name,
       email,
-      password: hashPassword,
-      image: profilePic
+      password: hash,
+      image: profilePic,
+      preferences: { notifications: true, units: "kg", theme: "light" },
     });
 
-    res.status(201).send({ message: "User registered successfully" });
-  } catch (error) {
-    if (error.code === 11000) {
-      res.status(400).send({ message: "Email already registered" });
-    } else {
-      console.log(error);
-      res.status(500).send({ message: "Server error", error });
-    }
+    res.status(201).send({ message: "User registered", userId: user._id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Server error" });
+  }
+});
+
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) return res.status(400).send({ message: "User not found" });
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(400).send({ message: "Incorrect password" });
+
+    const payload = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+    };
+    res.send({ message: "Logged in", user: payload });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Server error" });
+  }
+});
+
+app.get("/profile", authMiddleware, async (req, res) => {
+  const { _id, name, email, image } = req.user;
+  res.send({ _id, name, email, image });
+});
+
+app.post("/profile", authMiddleware, upload.single("profilePic"), async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const update = { name, email };
+    if (req.file) update.image = req.file.filename;
+
+    const updated = await User.findByIdAndUpdate(req.user._id, update, {
+      new: true,
+    }).select("name email image");
+
+    res.send(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Server error" });
   }
 });
 
 
-app.post("/login", async(req, res) => {
+app.get("/preferences", authMiddleware, async (req, res) => {
+  res.send(req.user.preferences);
+});
+
+app.post("/preferences", authMiddleware, async (req, res) => {
+  const { notifications, units, theme } = req.body;
+  const updated = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      "preferences.notifications": notifications,
+      "preferences.units": units,
+      "preferences.theme": theme,
+    },
+    { new: true }
+  ).select("preferences");
+
+  res.send(updated.preferences);
+});
+
+
+app.post("/workouts", authMiddleware, async (req, res) => {
   try {
-    const {email, password} = req.body;
-    const registeredUser = await reg_model.findOne({email : email});
-    if(registeredUser){
-      const isMatch = await bcrypt.compare(password, registeredUser.password);
-      if(isMatch){
-        res.status(200).send({message: "Logged in", registeredUser});
-      }else{
-        res.status(200).send({message: "Incorrect Password"});
-      }
-    }else{
-      res.status(200).send({message: "User don't exist"});
-    }
-  } catch (error) {
-    console.log(error)
-  }
-})
-
-
-
-app.post("/workouts", async (req, res) => {
-  try {
-    const { userId, exerciseName, sets, reps, weights, notes, category, tags, date } = req.body;
-    const newWorkout = new workout_model({
-      userId,
+    const {
       exerciseName,
       sets,
       reps,
@@ -87,209 +160,250 @@ app.post("/workouts", async (req, res) => {
       notes,
       category,
       tags,
+      date,
+    } = req.body;
+
+    const workout = await Workout.create({
+      userId: req.user._id,
+      exerciseName,
+      sets,
+      reps,
+      weights,
+      notes,
+      category,
+      tags: tags ? tags.split(",") : [],
       date: new Date(date),
     });
-    await newWorkout.save();
-    res.status(201).send({ message: "Workout added successfully" });
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({ message: "Server error" });
-  }
-});
 
-
-app.post("/progress", async (req, res) => {
-  try {
-    const { userId, date, weight, measurements, performance } = req.body;
-    const newProgress = new progress_model({
-      userId,
-      date: new Date(date),
-      weight,
-      measurements,
-      performance,
-    });
-    await newProgress.save();
-    res.status(201).send({ message: "Progress added successfully" });
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-
-app.get("/progress", async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).send({ message: "userId required" });
-
-    const entries = await progress_model
-      .find({ userId })
-      .sort({ date: 1 })
-      .lean();
-
-    res.send(entries);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-
-
-app.put("/progress/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updated = await progress_model.findByIdAndUpdate(id, req.body, { new: true });
-    if (!updated) return res.status(404).send({ message: "Not found" });
-    res.send(updated);
-  } catch (err) {
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-app.delete("/progress/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deleted = await progress_model.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).send({ message: "Not found" });
-    res.send({ message: "Deleted" });
-  } catch (err) {
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-
-
-app.get("/preferences", async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).send({ message: "userId required" });
-    const user = await reg_model.findById(userId).select('preferences');
-    if (!user) return res.status(404).send({ message: "User not found" });
-    res.send(user.preferences);
-  } catch (err) {
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-app.put("/preferences", async (req, res) => {
-  try {
-    const { userId, notifications, units, theme } = req.body;
-    if (!userId) return res.status(400).send({ message: "userId required" });
-    const updated = await reg_model.findByIdAndUpdate(
-      userId,
-      { 'preferences.notifications': notifications, 'preferences.units': units, 'preferences.theme': theme },
-      { new: true }
-    ).select('preferences');
-    if (!updated) return res.status(404).send({ message: "User not found" });
-    res.send(updated.preferences);
-  } catch (err) {
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-
-
-app.get("/profile", async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).send({ message: "userId required" });
-    const user = await reg_model.findById(userId).select('name email image');
-    if (!user) return res.status(404).send({ message: "User not found" });
-    res.send(user);
-  } catch (err) {
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-app.put("/profile", upload.single("profilePic"), async (req, res) => {
-  try {
-    const { userId, name, email } = req.body;
-    if (!userId) return res.status(400).send({ message: "userId required" });
-    const updateData = { name, email };
-    if (req.file) {
-      updateData.image = req.file.filename;
-    }
-    const updated = await reg_model.findByIdAndUpdate(userId, updateData, { new: true }).select('name email image');
-    if (!updated) return res.status(404).send({ message: "User not found" });
-    res.send(updated);
-  } catch (err) {
-    res.status(500).send({ message: "Server error" });
-  }
-});
-
-
-
-
-app.get("/nutrition", async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).send({ message: "userId required" });
-
-    const logs = await nutrition_model
-      .find({ userId })
-      .sort({ date: -1 })
-      .lean();
-
-    res.send(logs);
+    res.status(201).send(workout);
   } catch (err) {
     console.error(err);
     res.status(500).send({ message: "Server error" });
   }
 });
 
-app.post("/nutrition", async (req, res) => {
-  try {
-    const { userId, mealType, foodItems, date } = req.body;
-    if (!userId || !mealType || !foodItems || !date)
-      return res.status(400).send({ message: "Missing required fields" });
+app.get("/workouts", authMiddleware, async (req, res) => {
+  const { page = 1, limit = 20 } = req.query;
+  const workouts = await Workout.find({ userId: req.user._id })
+    .sort({ date: -1 })
+    .limit(+limit)
+    .skip((+page - 1) * +limit)
+    .lean();
+  res.send(workouts);
+});
 
-    const newLog = new nutrition_model({
-      userId,
+app.post("/workouts/:id", authMiddleware, async (req, res) => {
+  const workout = await Workout.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user._id },
+    req.body,
+    { new: true }
+  );
+  if (!workout) return res.status(404).send({ message: "Not found" });
+  res.send(workout);
+});
+
+app.delete("/workouts/:id", authMiddleware, async (req, res) => {
+  const workout = await Workout.findOneAndDelete({
+    _id: req.params.id,
+    userId: req.user._id,
+  });
+  if (!workout) return res.status(404).send({ message: "Not found" });
+  res.send({ message: "Deleted" });
+});
+
+
+app.post("/progress", authMiddleware, async (req, res) => {
+  const { date, weight, measurements, performance } = req.body;
+  const prog = await Progress.create({
+    userId: req.user._id,
+    date: new Date(date),
+    weight,
+    measurements,
+    performance,
+  });
+  res.status(201).send(prog);
+});
+
+app.get("/progress", authMiddleware, async (req, res) => {
+  const entries = await Progress.find({ userId: req.user._id })
+    .sort({ date: 1 })
+    .lean();
+  res.send(entries);
+});
+
+app.post("/progress/:id", authMiddleware, async (req, res) => {
+  const prog = await Progress.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user._id },
+    req.body,
+    { new: true }
+  );
+  if (!prog) return res.status(404).send({ message: "Not found" });
+  res.send(prog);
+});
+
+app.delete("/progress/:id", authMiddleware, async (req, res) => {
+  const prog = await Progress.findOneAndDelete({
+    _id: req.params.id,
+    userId: req.user._id,
+  });
+  if (!prog) return res.status(404).send({ message: "Not found" });
+  res.send({ message: "Deleted" });
+});
+
+
+const validateNutrition = (req, res, next) => {
+  const { mealType, foodItems, date } = req.body;
+  if (!mealType || !Array.isArray(foodItems) || foodItems.length === 0 || !date)
+    return res.status(400).send({ message: "Missing required fields" });
+
+  for (const i of foodItems) {
+    if (
+      !i.name ||
+      !i.quantity ||
+      typeof i.calories !== "number" ||
+      i.calories < 0
+    )
+      return res.status(400).send({ message: "Invalid food item" });
+  }
+  next();
+};
+
+app.post(
+  "/nutrition",
+  authMiddleware,
+  validateNutrition,
+  async (req, res) => {
+    const { mealType, foodItems, date, notes } = req.body;
+    const log = await Nutrition.create({
+      userId: req.user._id,
       mealType,
       foodItems,
       date: new Date(date),
+      notes,
     });
-
-    await newLog.save();
-    res.status(201).send(newLog);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
+    res.status(201).send(log);
   }
+);
+
+app.get("/nutrition", authMiddleware, async (req, res) => {
+  const { page = 1, limit = 20, mealType, date } = req.query;
+
+  const filter = { userId: req.user._id };
+  if (mealType) filter.mealType = mealType;
+  if (date) {
+    const start = new Date(date);
+    const end = new Date(start);
+    end.setHours(23, 59, 59, 999);
+    filter.date = { $gte: start, $lte: end };
+  }
+
+  const logs = await Nutrition.find(filter)
+    .sort({ date: -1 })
+    .limit(+limit)
+    .skip((+page - 1) * +limit)
+    .lean();
+
+  const enriched = logs.map((l) => ({
+    ...l,
+    totalCalories: l.foodItems.reduce((s, i) => s + i.calories, 0),
+    totalProteins: l.foodItems.reduce((s, i) => s + i.proteins, 0),
+    totalCarbs: l.foodItems.reduce((s, i) => s + i.carbs, 0),
+    totalFats: l.foodItems.reduce((s, i) => s + i.fats, 0),
+  }));
+
+  res.send(enriched);
 });
 
-app.post("/nutrition/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { mealType, foodItems, date } = req.body;
-
-    const updated = await nutrition_model.findByIdAndUpdate(
-      id,
-      { mealType, foodItems, date: new Date(date) },
+app.post(
+  "/nutrition/:id",
+  authMiddleware,
+  validateNutrition,
+  async (req, res) => {
+    const log = await Nutrition.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      req.body,
       { new: true }
     );
-
-    if (!updated) return res.status(404).send({ message: "Log not found" });
-    res.send(updated);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
+    if (!log) return res.status(404).send({ message: "Not found" });
+    res.send(log);
   }
+);
+
+app.delete("/nutrition/:id", authMiddleware, async (req, res) => {
+  const log = await Nutrition.findOneAndDelete({
+    _id: req.params.id,
+    userId: req.user._id,
+  });
+  if (!log) return res.status(404).send({ message: "Not found" });
+  res.send({ message: "Deleted" });
 });
 
-app.delete("/nutrition/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deleted = await nutrition_model.findByIdAndDelete(id);
+// ---------- Analytics ----------
+app.get("/analytics/nutrition", authMiddleware, async (req, res) => {
+  const { period = "week" } = req.query;
+  const now = new Date();
+  let start;
 
-    if (!deleted) return res.status(404).send({ message: "Log not found" });
-    res.send({ message: "Deleted" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Server error" });
-  }
+  if (period === "week") start = new Date(now.setDate(now.getDate() - 7));
+  else if (period === "month")
+    start = new Date(now.setMonth(now.getMonth() - 1));
+  else start = new Date(now.setFullYear(now.getFullYear() - 1));
+
+  const data = await Nutrition.aggregate([
+    { $match: { userId: req.user._id, date: { $gte: start } } },
+    {
+      $group: {
+        _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+        totalCalories: { $sum: { $sum: "$foodItems.calories" } },
+        totalProteins: { $sum: { $sum: "$foodItems.proteins" } },
+        totalCarbs: { $sum: { $sum: "$foodItems.carbs" } },
+        totalFats: { $sum: { $sum: "$foodItems.fats" } },
+        meals: { $sum: 1 },
+      },
+    },
+    { $sort: { _id: -1 } },
+  ]);
+
+  res.send(data);
 });
 
-const PORT = 3000;
+// ---------- CSV Report ----------
+app.get("/reports/nutrition", authMiddleware, async (req, res) => {
+  const { format = "csv" } = req.query;
+  if (format !== "csv")
+    return res.status(400).send({ message: "Only CSV supported" });
+
+  const logs = await Nutrition.find({ userId: req.user._id })
+    .sort({ date: -1 })
+    .lean();
+
+  const rows = logs.map((l) => ({
+    Date: new Date(l.date).toISOString().split("T")[0],
+    Meal: l.mealType,
+    Foods: l.foodItems.map((i) => i.name).join("; "),
+    Calories: l.foodItems.reduce((s, i) => s + i.calories, 0),
+  }));
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=nutrition_report.csv"
+  );
+
+  const stringifier = stringify(rows, { header: true });
+  stringifier.pipe(res);
+});
+
+// ------------------------------------------------------------------
+// Daily reminder (8 AM)
+// ------------------------------------------------------------------
+cron.schedule("0 8 * * *", async () => {
+  console.log("Running daily meal reminder job...");
+  // TODO: integrate with Nodemailer / Push service
+});
+
+// ------------------------------------------------------------------
+// Start server
+// ------------------------------------------------------------------
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
