@@ -77,7 +77,6 @@ app.post("/login", async(req, res) => {
 app.post("/workouts", async (req, res) => {
   try {
     const { userId, exerciseName, sets, reps, weights, notes, category, tags, date } = req.body;
-
     const newWorkout = new workout_model({
       userId,
       exerciseName,
@@ -89,16 +88,7 @@ app.post("/workouts", async (req, res) => {
       tags,
       date: new Date(date),
     });
-
     await newWorkout.save();
-
-    // ✅ Create a notification automatically
-    await Notification.create({
-      userId,
-      type: "activity",
-      message: `Workout "${exerciseName}" added successfully.`,
-    });
-
     res.status(201).json({ message: "Workout added successfully" });
   } catch (error) {
     console.log(error);
@@ -110,7 +100,6 @@ app.post("/workouts", async (req, res) => {
 app.post("/progress", async (req, res) => {
   try {
     const { userId, date, weight, measurements, performance } = req.body;
-
     const newProgress = new progress_model({
       userId,
       date: new Date(date),
@@ -118,23 +107,13 @@ app.post("/progress", async (req, res) => {
       measurements,
       performance,
     });
-
     await newProgress.save();
-
-    // ✅ Add a notification for progress tracking
-    await Notification.create({
-      userId,
-      type: "reminder",
-      message: `Progress updated for ${new Date(date).toLocaleDateString()}.`,
-    });
-
     res.status(201).json({ message: "Progress added successfully" });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 
 app.get("/progress", async (req, res) => {
@@ -235,74 +214,6 @@ app.put("/profile", upload.single("profilePic"), async (req, res) => {
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
-  }
-});
-
-
-
-app.get("/notifications", async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ message: "userId required" });
-
-    const notifications = await Notification.find({ userId })
-      .sort({ date: -1 })
-      .lean();
-
-    res.json(notifications);
-  } catch (err) {
-    console.error("GET /notifications error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
-});
-
-// ➕ Create a new notification (optional utility for testing)
-app.post("/notifications", async (req, res) => {
-  try {
-    const { userId, type, message } = req.body;
-    if (!userId || !type || !message)
-      return res.status(400).json({ message: "userId, type, and message required" });
-
-    const notif = new Notification({ userId, type, message });
-    await notif.save();
-
-    res.status(201).json(notif);
-  } catch (err) {
-    console.error("POST /notifications error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
-});
-
-app.post("/notifications/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const notif = await Notification.findByIdAndUpdate(
-      id,
-      { isRead: true },
-      { new: true }
-    );
-
-    if (!notif) return res.status(404).send({ message: "Notification not found" });
-    res.send({ message: "Marked as read", notif });
-  } catch (err) {
-    console.error("POST /notifications/:id error:", err);
-    res.status(500).send({ message: "Server error", error: err.message });
-  }
-});
-
-// 🗑️ Delete a notification
-app.delete("/notifications/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const deleted = await Notification.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: "Notification not found" });
-
-    res.json({ message: "Notification deleted" });
-  } catch (err) {
-    console.error("DELETE /notifications/:id error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
