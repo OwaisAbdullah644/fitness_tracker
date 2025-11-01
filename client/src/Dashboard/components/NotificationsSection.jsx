@@ -10,8 +10,8 @@ export default function NotificationsSection() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const userId = user?._id;
+  const userId = localStorage.getItem("userId")
+//   const userId = user?._id;
 
   const fetchNotifications = useCallback(async () => {
     if (!userId) {
