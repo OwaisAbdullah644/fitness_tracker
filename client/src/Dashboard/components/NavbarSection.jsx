@@ -7,12 +7,15 @@ import { useNavigate } from 'react-router-dom';
 const NavbarSection = ({ user, toggleTheme, isDark }) => {
   const navigate = useNavigate();
 
+    const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; 
+  
+
   const handleProfileClick = () => {
     navigate('/dashboard/profile');
   };
 
   const profileImageUrl = user?.profilePic 
-    ? `http://localhost:3000/uploads/${user.profilePic}` 
+    ? `${API_BASE_URL}/uploads/${user.profilePic}` 
     : 'https://via.placeholder.com/40';
 
   return (

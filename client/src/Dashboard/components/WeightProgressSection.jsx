@@ -6,12 +6,13 @@ const WeightProgressSection = () => {
   const [weightEntries, setWeightEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; 
 
   useEffect(() => {
     const fetchWeights = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:3000/api/progress/weights', {
+        const res = await axios.get(`${API_BASE_URL}/progress/weights`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setWeightEntries(res.data);

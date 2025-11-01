@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 
 const NutritionLogsSection = () => {
-  // ——— Dummy data (no backend) ———
   const dummyLogs = [
     {
       _id: "1",
@@ -24,7 +23,6 @@ const NutritionLogsSection = () => {
     }
   ];
 
-  // ——— useState for form (but not used in table) ———
   const [mealType, setMealType] = useState("Breakfast");
   const [foodItem, setFoodItem] = useState("");
   const [quantity, setQuantity] = useState("");

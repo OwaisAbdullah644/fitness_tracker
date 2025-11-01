@@ -4,6 +4,12 @@ import axios from "axios";
 import toast from "react-hot-toast";
 
 const ProgressInputSection = ({ onProgressAdded }) => {
+
+
+  const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; 
+
+
+
   const [form, setForm] = useState({
     date: "",
     weight: "",
@@ -12,6 +18,7 @@ const ProgressInputSection = ({ onProgressAdded }) => {
     runTime: "",
     liftWeight: "",
   });
+
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -41,7 +48,7 @@ const ProgressInputSection = ({ onProgressAdded }) => {
 
     try {
       await axios.post(
-        "https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/progress",
+        `${API_BASE_URL}/progress`,
         payload
       );
       toast.success("Progress saved!");

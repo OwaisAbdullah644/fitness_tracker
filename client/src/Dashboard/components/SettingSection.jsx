@@ -12,8 +12,9 @@ const SettingSection = () => {
   });
   const [loading, setLoading] = useState(true);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const userId = user._id; // Assuming _id from registeredUser in login
-
+  const userId = user._id; 
+  const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; 
+  
   useEffect(() => {
     const fetchPreferences = async () => {
       if (!userId) {
@@ -22,7 +23,7 @@ const SettingSection = () => {
         return;
       }
       try {
-        const res = await axios.get(`http://localhost:3000/preferences?userId=${userId}`);
+        const res = await axios.get(`${API_BASE_URL}/preferences?userId=${userId}`);
         setPreferences(res.data);
       } catch (err) {
         toast.error('Failed to load preferences');

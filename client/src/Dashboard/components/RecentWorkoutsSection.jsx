@@ -15,6 +15,9 @@ const RecentWorkoutsSection = () => {
   const [tags, setTags] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
+    const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; 
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const userId = localStorage.getItem("userId");
@@ -23,7 +26,7 @@ const RecentWorkoutsSection = () => {
       return;
     }
       try {
-        const res = await axios.post('https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/workouts', {
+        const res = await axios.post(`${API_BASE_URL}/workouts`, {
           userId,
           exerciseName,
           sets,

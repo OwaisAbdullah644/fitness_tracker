@@ -14,7 +14,7 @@ const ProfileSection = () => {
   const [loading, setLoading] = useState(true);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = user._id;
-  const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; // Use env var in production: process.env.REACT_APP_API_URL
+  const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; 
 
   useEffect(() => {
     const fetchProfile = async () => {

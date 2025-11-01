@@ -17,6 +17,8 @@ import toast from "react-hot-toast";
 const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; 
+
 
   const handleEdit = (entry) => {
     setEditingId(entry._id);
@@ -55,7 +57,7 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
 
     try {
       await axios.put(
-        `https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/progress/${editingId}`,
+        `${API_BASE_URL}/progress/${editingId}`,
         payload
       );
       toast.success("Progress updated!");
@@ -70,7 +72,7 @@ const ProgressSummarySection = ({ progressEntries = [], onProgressUpdate }) => {
   const handleDelete = async (id) => {
     try {
       await axios.delete(
-        `https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app/progress/${id}`
+        `${API_BASE_URL}/progress/${id}`
       );
       toast.success("Deleted!");
     } catch (err) {
