@@ -49,9 +49,8 @@ const SettingSection = () => {
       return;
     }
     try {
-      await axios.put('http://localhost:3000/preferences', { ...preferences, userId });
+      await axios.put(`${API_BASE_URL}/preferences`, { ...preferences, userId });
       toast.success('Preferences updated!');
-      // Apply theme to document
       document.documentElement.setAttribute('data-theme', preferences.theme);
     } catch (err) {
       toast.error('Failed to update preferences');
