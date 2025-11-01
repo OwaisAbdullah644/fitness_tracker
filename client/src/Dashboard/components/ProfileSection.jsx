@@ -77,12 +77,15 @@ const ProfileSection = () => {
   if (loading) return <p className="text-var(--text-muted)">Loading profile...</p>;
 
   return (
+    
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="mt-6 p-6 rounded-lg shadow-md"
       style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
     >
+    <Toaster position="top-right" />
+
       <h3 className="text-xl font-semibold mb-4" style={{ color: 'var(--accent)' }}>User Profile</h3>
       <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6 mb-6">
         <div className="relative">
