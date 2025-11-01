@@ -469,8 +469,6 @@ app.get("/notifications", authMiddleware, async (req, res) => {
   }
 });
 
-// Removed public POST /notifications as notifications are now triggered internally
-
 app.post("/notifications/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;

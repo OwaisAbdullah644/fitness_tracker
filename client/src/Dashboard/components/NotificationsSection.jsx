@@ -31,7 +31,7 @@ export default function NotificationsSection() {
 
   const markAsRead = async (id) => {
     try {
-      await axios.put(`${API_BASE}/notifications/${id}`);
+      await axios.post(`${API_BASE}/notifications/${id}`, { userId });
       fetchNotifications();
       toast.success("Marked as read");
     } catch (err) {
@@ -43,7 +43,7 @@ export default function NotificationsSection() {
   const deleteNotification = async (id) => {
     if (!window.confirm("Delete notification?")) return;
     try {
-      await axios.delete(`${API_BASE}/notifications/${id}`);
+      await axios.delete(`${API_BASE}/notifications/${id}`, { data: { userId } });
       toast.success("Deleted");
       fetchNotifications();
     } catch (err) {

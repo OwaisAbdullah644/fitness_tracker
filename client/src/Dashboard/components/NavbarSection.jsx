@@ -49,7 +49,7 @@ const NavbarSection = ({ user, toggleTheme, isDark }) => {
   const markAllRead = async () => {
     try {
       for (const notif of notifications.filter(n => !n.isRead)) {
-        await axios.post(`${API_BASE_URL}/notifications/${notif._id}`);
+        await axios.post(`${API_BASE_URL}/notifications/${notif._id}`, { userId: user._id });
       }
       fetchNotifications();
     } catch (err) {
@@ -59,7 +59,7 @@ const NavbarSection = ({ user, toggleTheme, isDark }) => {
 
   const markRead = async (id) => {
     try {
-      await axios.post(`${API_BASE_URL}/notifications/${id}`);
+      await axios.post(`${API_BASE_URL}/notifications/${id}`, { userId: user._id });
       fetchNotifications();
     } catch (err) {
       console.error('Failed to mark as read:', err);
@@ -68,7 +68,7 @@ const NavbarSection = ({ user, toggleTheme, isDark }) => {
 
   const deleteNotification = async (id) => {
     try {
-      await axios.delete(`${API_BASE_URL}/notifications/${id}`);
+      await axios.delete(`${API_BASE_URL}/notifications/${id}`, { data: { userId: user._id } });
       fetchNotifications();
     } catch (err) {
       console.error('Failed to delete:', err);
