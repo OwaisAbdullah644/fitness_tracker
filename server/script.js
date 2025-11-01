@@ -1,91 +1,83 @@
-// script.js
-require("dotenv").config();
+const reg_model = require("./models/register");
+const workout_model = require("./models/workout");
+const progress_model = require("./models/progress");
+const connectDb = require("./config/connectDb");
 const express = require("express");
-const cors = require("cors");
 const mongoose = require("mongoose");
+const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const bcrypt = require("bcrypt");
-const cron = require("node-cron");
-const { stringify } = require("csv-stringify");
-
 const app = express();
 
-// ------------------- Middleware -------------------
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json());
 app.use(cors());
+connectDb();
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ------------------- Multer -------------------
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "./uploads"),
-  filename: (req, file, cb) => {
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + unique + path.extname(file.originalname));
+  destination: function (req, file, cb) {
+    cb(null, "./uploads");
   },
-});
-const upload = multer({ storage });
-
-// ------------------- Models -------------------
-const User = require("./models/register");
-const Workout = require("./models/workout");
-const Progress = require("./models/progress");
-const Nutrition = require("./models/nutrition");
-
-// ------------------- DB Connect -------------------
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/fitness";
-
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
 });
 
-mongoose.connection.on("connected", () => console.log("MongoDB connected"));
-mongoose.connection.on("error", (err) => console.error("MongoDB error:", err));
+const upload = multer({ storage: storage });
 
-// ------------------- Routes -------------------
-
-// Register
 app.post("/register", upload.single("profilePic"), async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ message: "Email already registered" });
+    const hashPassword = await bcrypt.hash(password, 10);
+    const profilePic = req.file ? req.file.filename : "";
 
-    const hash = await bcrypt.hash(password, 10);
-    const image = req.file ? req.file.filename : "";
+    await reg_model.insertOne({
+      name,
+      email,
+      password: hashPassword,
+      image: profilePic
+    });
 
-    await User.create({ name, email, password: hash, image });
-    res.status(201).json({ message: "User registered" });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Server error" });
+    res.status(201).json({ message: "User registered successfully" });
+  } catch (error) {
+    if (error.code === 11000) {
+      res.status(400).json({ message: "Email already registered" });
+    } else {
+      console.log(error);
+      res.status(500).json({ message: "Server error", error });
+    }
   }
 });
 
-// Login
-app.post("/login", async (req, res) => {
+
+app.post("/login", async(req, res) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) return res.status(400).json({ message: "User not found" });
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ message: "Incorrect password" });
-
-    const payload = { _id: user._id, name: user.name, email: user.email, image: user.image };
-    res.json({ message: "Logged in", user: payload });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Server error" });
+    const {email, password} = req.body;
+    const registeredUser = await reg_model.findOne({email : email});
+    if(registeredUser){
+      const isMatch = await bcrypt.compare(password, registeredUser.password);
+      if(isMatch){
+        res.status(200).send({message: "Logged in", registeredUser});
+      }else{
+        res.status(200).send({message: "Incorrect Password"});
+      }
+    }else{
+      res.status(200).send({message: "User don't exist"});
+    }
+  } catch (error) {
+    console.log(error)
   }
-});
+})
 
-// Workouts
+
+
 app.post("/workouts", async (req, res) => {
   try {
     const { userId, exerciseName, sets, reps, weights, notes, category, tags, date } = req.body;
-    await Workout.create({
+    const newWorkout = new workout_model({
       userId,
       exerciseName,
       sets,
@@ -93,48 +85,63 @@ app.post("/workouts", async (req, res) => {
       weights,
       notes,
       category,
-      tags: tags ? tags.split(",") : [],
+      tags,
       date: new Date(date),
     });
-    res.status(201).json({ message: "Workout added" });
-  } catch (e) {
-    console.error(e);
+    await newWorkout.save();
+    res.status(201).json({ message: "Workout added successfully" });
+  } catch (error) {
+    console.log(error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// Progress
+
 app.post("/progress", async (req, res) => {
   try {
     const { userId, date, weight, measurements, performance } = req.body;
-    await Progress.create({ userId, date: new Date(date), weight, measurements, performance });
-    res.status(201).json({ message: "Progress added" });
-  } catch (e) {
-    console.error(e);
+    const newProgress = new progress_model({
+      userId,
+      date: new Date(date),
+      weight,
+      measurements,
+      performance,
+    });
+    await newProgress.save();
+    res.status(201).json({ message: "Progress added successfully" });
+  } catch (error) {
+    console.log(error);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 app.get("/progress", async (req, res) => {
   try {
     const { userId } = req.query;
-    if (!userId) return res.status(400).json({ message: "userId required" });
-    const entries = await Progress.find({ userId }).sort({ date: 1 }).lean();
-    res.json(entries);
-  } catch (e) {
-    console.error(e);
+    if (!userId) return res.status(400).send({ message: "userId required" });
+
+    const entries = await progress_model
+      .find({ userId })
+      .sort({ date: 1 })
+      .lean();
+
+    res.send(entries);
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+
+
 app.put("/progress/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await Progress.findByIdAndUpdate(id, req.body, { new: true });
+    const updated = await progress_model.findByIdAndUpdate(id, req.body, { new: true });
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -142,25 +149,54 @@ app.put("/progress/:id", async (req, res) => {
 app.delete("/progress/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await Progress.findByIdAndDelete(id);
+    const deleted = await progress_model.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: "Not found" });
     res.json({ message: "Deleted" });
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// Profile
+
+
+app.get("/preferences", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+    const user = await reg_model.findById(userId).select('preferences');
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user.preferences);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.put("/preferences", async (req, res) => {
+  try {
+    const { userId, notifications, units, theme } = req.body;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+    const updated = await reg_model.findByIdAndUpdate(
+      userId,
+      { 'preferences.notifications': notifications, 'preferences.units': units, 'preferences.theme': theme },
+      { new: true }
+    ).select('preferences');
+    if (!updated) return res.status(404).json({ message: "User not found" });
+    res.json(updated.preferences);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
 app.get("/profile", async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ message: "userId required" });
-    const user = await User.findById(userId).select("name email image");
+    const user = await reg_model.findById(userId).select('name email image');
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -169,89 +205,18 @@ app.put("/profile", upload.single("profilePic"), async (req, res) => {
   try {
     const { userId, name, email } = req.body;
     if (!userId) return res.status(400).json({ message: "userId required" });
-    const update = { name, email };
-    if (req.file) update.image = req.file.filename;
-    const updated = await User.findByIdAndUpdate(userId, update, { new: true }).select("name email image");
+    const updateData = { name, email };
+    if (req.file) {
+      updateData.image = req.file.filename;
+    }
+    const updated = await reg_model.findByIdAndUpdate(userId, updateData, { new: true }).select('name email image');
     if (!updated) return res.status(404).json({ message: "User not found" });
     res.json(updated);
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// ------------------- NUTRITION -------------------
-app.post("/nutrition", async (req, res) => {
-  try {
-    const { userId, mealType, foodItems, date, notes } = req.body;
-    if (!userId || !mealType || !Array.isArray(foodItems) || foodItems.length === 0 || !date)
-      return res.status(400).json({ message: "Invalid data" });
 
-    const log = await Nutrition.create({
-      userId,
-      mealType,
-      foodItems,
-      date: new Date(date),
-      notes,
-    });
-    res.status(201).json({ message: "Created", log });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-app.get("/nutrition", async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ message: "userId required" });
-
-    const logs = await Nutrition.find({ userId }).sort({ date: -1 }).lean();
-    const enriched = logs.map(log => ({
-      ...log,
-      totalCalories: log.foodItems.reduce((s, i) => s + i.calories, 0),
-      totalProteins: log.foodItems.reduce((s, i) => s + i.proteins, 0),
-      totalCarbs: log.foodItems.reduce((s, i) => s + i.carbs, 0),
-      totalFats: log.foodItems.reduce((s, i) => s + i.fats, 0),
-    }));
-    res.json(enriched);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-app.put("/nutrition/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { mealType, foodItems, date, notes } = req.body;
-    const updated = await Nutrition.findByIdAndUpdate(
-      id,
-      { mealType, foodItems, date: new Date(date), notes },
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ message: "Not found" });
-    res.json(updated);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-app.delete("/nutrition/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deleted = await Nutrition.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: "Not found" });
-    res.json({ message: "Deleted" });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// ------------------- Start -------------------
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const PORT = 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
