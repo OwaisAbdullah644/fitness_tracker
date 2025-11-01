@@ -1,6 +1,7 @@
 const reg_model = require("./models/register");
 const workout_model = require("./models/workout");
 const progress_model = require("./models/progress");
+const nutrition_model = require("./models/nutrition");
 const connectDb = require("./config/connectDb");
 const express = require("express");
 const mongoose = require("mongoose");
@@ -217,6 +218,78 @@ app.put("/profile", upload.single("profilePic"), async (req, res) => {
   }
 });
 
+
+
+
+app.get("/nutrition", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+
+    const logs = await nutrition_model
+      .find({ userId })
+      .sort({ date: -1 })
+      .lean();
+
+    res.json(logs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/nutrition", async (req, res) => {
+  try {
+    const { userId, mealType, foodItems, date } = req.body;
+    if (!userId || !mealType || !foodItems || !date)
+      return res.status(400).json({ message: "Missing required fields" });
+
+    const newLog = new nutrition_model({
+      userId,
+      mealType,
+      foodItems,
+      date: new Date(date),
+    });
+
+    await newLog.save();
+    res.status(201).json(newLog);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/nutrition/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { mealType, foodItems, date } = req.body;
+
+    const updated = await nutrition_model.findByIdAndUpdate(
+      id,
+      { mealType, foodItems, date: new Date(date) },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: "Log not found" });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.delete("/nutrition/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await nutrition_model.findByIdAndDelete(id);
+
+    if (!deleted) return res.status(404).json({ message: "Log not found" });
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
