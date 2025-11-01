@@ -81,7 +81,6 @@ app.post("/login", async (req, res) => {
 });
 
 
-// ========================= WORKOUT CRUD =========================
 app.post("/workouts", async (req, res) => {
   try {
     const { userId, exerciseName, sets, reps, weights, notes, category, tags, date } = req.body;
@@ -249,7 +248,7 @@ app.post("/nutrition", async (req, res) => {
   try {
     const { userId, mealType, foodItems, date, notes } = req.body;
     if (!userId || !mealType || !Array.isArray(foodItems) || foodItems.length === 0 || !date)
-      return res.status(400).json({ message: "Invalid data" });
+      return res.status(400).send({ message: "Invalid data" });
 
     const log = await Nutrition.create({
       userId,
@@ -258,17 +257,17 @@ app.post("/nutrition", async (req, res) => {
       date: new Date(date),
       notes,
     });
-    res.status(201).json({ message: "Created", log });
+    res.status(201).send({ message: "Created", log });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
 app.get("/nutrition", async (req, res) => {
   try {
     const { userId } = req.query;
-    if (!userId) return res.status(400).json({ message: "userId required" });
+    if (!userId) return res.status(400).send({ message: "userId required" });
 
     const logs = await Nutrition.find({ userId }).sort({ date: -1 }).lean();
     const enriched = logs.map(log => ({
@@ -278,10 +277,10 @@ app.get("/nutrition", async (req, res) => {
       totalCarbs: log.foodItems.reduce((s, i) => s + i.carbs, 0),
       totalFats: log.foodItems.reduce((s, i) => s + i.fats, 0),
     }));
-    res.json(enriched);
+    res.send(enriched);
   } catch (e) {
     console.error(e);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -294,8 +293,8 @@ app.put("/nutrition/:id", async (req, res) => {
       { mealType, foodItems, date: new Date(date), notes },
       { new: true }
     );
-    if (!updated) return res.status(404).json({ message: "Not found" });
-    res.json(updated);
+    if (!updated) return res.status(404).send({ message: "Not found" });
+    res.send(updated);
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Server error" });
@@ -306,8 +305,8 @@ app.delete("/nutrition/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await Nutrition.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: "Not found" });
-    res.json({ message: "Deleted" });
+    if (!deleted) return res.status(404).send({ message: "Not found" });
+    res.send({ message: "Deleted" });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Server error" });
