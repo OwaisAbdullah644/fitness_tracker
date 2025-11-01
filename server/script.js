@@ -10,6 +10,7 @@ const reg_model = require("./models/register");
 const workout_model = require("./models/workout");
 const progress_model = require("./models/progress");
 const Notification = require("./models/notification");
+const Nutrition = require("./models/nutrition");
 
 const app = express();
 
