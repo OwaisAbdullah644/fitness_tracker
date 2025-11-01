@@ -11,7 +11,7 @@ const path = require("path");
 const bcrypt = require("bcrypt");
 const app = express();
 
-app.use(express.json());
+app.use(express.send());
 app.use(cors());
 connectDb();
 
@@ -42,13 +42,13 @@ app.post("/register", upload.single("profilePic"), async (req, res) => {
       image: profilePic
     });
 
-    res.status(201).json({ message: "User registered successfully" });
+    res.status(201).send({ message: "User registered successfully" });
   } catch (error) {
     if (error.code === 11000) {
-      res.status(400).json({ message: "Email already registered" });
+      res.status(400).send({ message: "Email already registered" });
     } else {
       console.log(error);
-      res.status(500).json({ message: "Server error", error });
+      res.status(500).send({ message: "Server error", error });
     }
   }
 });
@@ -90,10 +90,10 @@ app.post("/workouts", async (req, res) => {
       date: new Date(date),
     });
     await newWorkout.save();
-    res.status(201).json({ message: "Workout added successfully" });
+    res.status(201).send({ message: "Workout added successfully" });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -109,10 +109,10 @@ app.post("/progress", async (req, res) => {
       performance,
     });
     await newProgress.save();
-    res.status(201).json({ message: "Progress added successfully" });
+    res.status(201).send({ message: "Progress added successfully" });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -130,7 +130,7 @@ app.get("/progress", async (req, res) => {
     res.send(entries);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -140,10 +140,10 @@ app.put("/progress/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const updated = await progress_model.findByIdAndUpdate(id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ message: "Not found" });
-    res.json(updated);
+    if (!updated) return res.status(404).send({ message: "Not found" });
+    res.send(updated);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -151,10 +151,10 @@ app.delete("/progress/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const deleted = await progress_model.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: "Not found" });
-    res.json({ message: "Deleted" });
+    if (!deleted) return res.status(404).send({ message: "Not found" });
+    res.send({ message: "Deleted" });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -163,28 +163,28 @@ app.delete("/progress/:id", async (req, res) => {
 app.get("/preferences", async (req, res) => {
   try {
     const { userId } = req.query;
-    if (!userId) return res.status(400).json({ message: "userId required" });
+    if (!userId) return res.status(400).send({ message: "userId required" });
     const user = await reg_model.findById(userId).select('preferences');
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user.preferences);
+    if (!user) return res.status(404).send({ message: "User not found" });
+    res.send(user.preferences);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
 app.put("/preferences", async (req, res) => {
   try {
     const { userId, notifications, units, theme } = req.body;
-    if (!userId) return res.status(400).json({ message: "userId required" });
+    if (!userId) return res.status(400).send({ message: "userId required" });
     const updated = await reg_model.findByIdAndUpdate(
       userId,
       { 'preferences.notifications': notifications, 'preferences.units': units, 'preferences.theme': theme },
       { new: true }
     ).select('preferences');
-    if (!updated) return res.status(404).json({ message: "User not found" });
-    res.json(updated.preferences);
+    if (!updated) return res.status(404).send({ message: "User not found" });
+    res.send(updated.preferences);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -193,28 +193,28 @@ app.put("/preferences", async (req, res) => {
 app.get("/profile", async (req, res) => {
   try {
     const { userId } = req.query;
-    if (!userId) return res.status(400).json({ message: "userId required" });
+    if (!userId) return res.status(400).send({ message: "userId required" });
     const user = await reg_model.findById(userId).select('name email image');
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
+    if (!user) return res.status(404).send({ message: "User not found" });
+    res.send(user);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
 app.put("/profile", upload.single("profilePic"), async (req, res) => {
   try {
     const { userId, name, email } = req.body;
-    if (!userId) return res.status(400).json({ message: "userId required" });
+    if (!userId) return res.status(400).send({ message: "userId required" });
     const updateData = { name, email };
     if (req.file) {
       updateData.image = req.file.filename;
     }
     const updated = await reg_model.findByIdAndUpdate(userId, updateData, { new: true }).select('name email image');
-    if (!updated) return res.status(404).json({ message: "User not found" });
-    res.json(updated);
+    if (!updated) return res.status(404).send({ message: "User not found" });
+    res.send(updated);
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -224,17 +224,17 @@ app.put("/profile", upload.single("profilePic"), async (req, res) => {
 app.get("/nutrition", async (req, res) => {
   try {
     const { userId } = req.query;
-    if (!userId) return res.status(400).json({ message: "userId required" });
+    if (!userId) return res.status(400).send({ message: "userId required" });
 
     const logs = await nutrition_model
       .find({ userId })
       .sort({ date: -1 })
       .lean();
 
-    res.json(logs);
+    res.send(logs);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -242,7 +242,7 @@ app.post("/nutrition", async (req, res) => {
   try {
     const { userId, mealType, foodItems, date } = req.body;
     if (!userId || !mealType || !foodItems || !date)
-      return res.status(400).json({ message: "Missing required fields" });
+      return res.status(400).send({ message: "Missing required fields" });
 
     const newLog = new nutrition_model({
       userId,
@@ -252,10 +252,10 @@ app.post("/nutrition", async (req, res) => {
     });
 
     await newLog.save();
-    res.status(201).json(newLog);
+    res.status(201).send(newLog);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -270,11 +270,11 @@ app.post("/nutrition/:id", async (req, res) => {
       { new: true }
     );
 
-    if (!updated) return res.status(404).json({ message: "Log not found" });
-    res.json(updated);
+    if (!updated) return res.status(404).send({ message: "Log not found" });
+    res.send(updated);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -283,11 +283,11 @@ app.delete("/nutrition/:id", async (req, res) => {
     const { id } = req.params;
     const deleted = await nutrition_model.findByIdAndDelete(id);
 
-    if (!deleted) return res.status(404).json({ message: "Log not found" });
-    res.json({ message: "Deleted" });
+    if (!deleted) return res.status(404).send({ message: "Log not found" });
+    res.send({ message: "Deleted" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
