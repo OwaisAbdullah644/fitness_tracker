@@ -218,5 +218,163 @@ app.put("/profile", upload.single("profilePic"), async (req, res) => {
 });
 
 
+
+const nutrition_model = require("./models/nutrition"); 
+const cron = require('node-cron'); 
+
+const validateNutrition = (req, res, next) => {
+  const { userId, mealType, foodItems, date } = req.body;
+  if (!userId || !mealType || !Array.isArray(foodItems) || foodItems.length === 0 || !date) {
+    return res.status(400).json({ message: "Missing required fields: userId, mealType, foodItems, date" });
+  }
+  foodItems.forEach(item => {
+    if (!item.name || !item.quantity || typeof item.calories !== 'number' || item.calories < 0) {
+      return res.status(400).json({ message: "Invalid food item data" });
+    }
+  });
+  next();
+};
+
+app.post("/api/nutrition", validateNutrition, async (req, res) => {
+  try {
+    const { userId, mealType, foodItems, date, notes } = req.body;
+    const newLog = new nutrition_model({
+      userId,
+      mealType,
+      foodItems,
+      date: new Date(date),
+      notes,
+    });
+    await newLog.save();
+    res.status(201).json({ message: "Nutrition log created", log: newLog });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get("/api/nutrition", async (req, res) => {
+  try {
+    const { userId, mealType, date, page = 1, limit = 20 } = req.query; 
+    if (!userId) return res.status(400).json({ message: "userId required" });
+
+    const filter = { userId };
+    if (mealType) filter.mealType = mealType;
+    if (date) filter.date = { $gte: new Date(date), $lte: new Date(new Date(date).setHours(23, 59, 59)) }; 
+
+    const logs = await nutrition_model
+      .find(filter)
+      .sort({ date: -1 }) 
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean();
+
+  
+    const logsWithTotals = logs.map(log => ({
+      ...log,
+      totalCalories: log.foodItems.reduce((sum, item) => sum + item.calories, 0),
+      totalProteins: log.foodItems.reduce((sum, item) => sum + item.proteins, 0),
+      totalCarbs: log.foodItems.reduce((sum, item) => sum + item.carbs, 0),
+      totalFats: log.foodItems.reduce((sum, item) => sum + item.fats, 0),
+    }));
+
+    res.json(logsWithTotals);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.put("/api/nutrition/:id", validateNutrition, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { mealType, foodItems, date, notes } = req.body;
+    const updatedLog = await nutrition_model.findByIdAndUpdate(
+      id,
+      { mealType, foodItems, date: new Date(date), notes },
+      { new: true }
+    );
+    if (!updatedLog) return res.status(404).json({ message: "Log not found" });
+    res.json({ message: "Nutrition log updated", log: updatedLog });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.delete("/api/nutrition/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedLog = await nutrition_model.findByIdAndDelete(id);
+    if (!deletedLog) return res.status(404).json({ message: "Log not found" });
+    res.json({ message: "Nutrition log deleted" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get("/api/analytics/nutrition", async (req, res) => {
+  try {
+    const { userId, period = 'week' } = req.query; 
+    if (!userId) return res.status(400).json({ message: "userId required" });
+
+    const now = new Date();
+    let startDate;
+    if (period === 'week') startDate = new Date(now.setDate(now.getDate() - 7));
+    else if (period === 'month') startDate = new Date(now.setMonth(now.getMonth() - 1));
+    else startDate = new Date(now.setFullYear(now.getFullYear() - 1)); 
+
+    const analytics = await nutrition_model.aggregate([
+      { $match: { userId, date: { $gte: startDate } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+          totalCalories: { $sum: { $sum: "$foodItems.calories" } },
+          totalProteins: { $sum: { $sum: "$foodItems.proteins" } },
+          totalCarbs: { $sum: { $sum: "$foodItems.carbs" } },
+          totalFats: { $sum: { $sum: "$foodItems.fats" } },
+          mealCount: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: -1 } } 
+    ]);
+
+    res.json(analytics); 
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.get("/api/reports/nutrition", async (req, res) => {
+  try {
+    const { userId, format = 'csv' } = req.query;
+    if (!userId) return res.status(400).json({ message: "userId required" });
+
+    const logs = await nutrition_model.find({ userId }).sort({ date: -1 }).lean();
+
+    if (format === 'csv') {
+      const csvWriter = require('csv-writer').createObjectWriter('nutrition_report.csv'); // npm i csv-writer
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=nutrition_report.csv');
+      res.send('Date,Meal Type,Food Items,Total Calories\n' + logs.map(log => 
+        `${log.date},${log.mealType},${log.foodItems.map(i => i.name).join('; ')},${log.foodItems.reduce((s, i) => s + i.calories, 0)}`
+      ).join('\n'));
+    } else {
+      res.status(400).json({ message: "Format must be 'csv' or 'pdf'" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+cron.schedule('0 8 * * *', async () => {
+  console.log('Sending daily meal reminders...');
+});
+
+
+
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
