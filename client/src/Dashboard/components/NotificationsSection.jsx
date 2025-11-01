@@ -10,8 +10,8 @@ export default function NotificationsSection() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const userId = localStorage.getItem("userId")
-//   const userId = user?._id;
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = user?._id;
 
   const fetchNotifications = useCallback(async () => {
     if (!userId) {
@@ -43,7 +43,7 @@ export default function NotificationsSection() {
   const deleteNotification = async (id) => {
     if (!window.confirm("Delete notification?")) return;
     try {
-      await axios.delete(`${API_BASE}/notifications/${id}`, { data: { userId } });
+      await axios.delete(`${API_BASE}/notifications/${id}?userId=${userId}`);
       toast.success("Deleted");
       fetchNotifications();
     } catch (err) {
