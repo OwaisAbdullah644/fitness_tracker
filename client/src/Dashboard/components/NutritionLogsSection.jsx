@@ -48,7 +48,7 @@ export default function NutritionLogsSection() {
   const fetchLogs = useCallback(async () => {
     if (!userId) return;
     try {
-      const res = await axios.get(`${API_BASE}/api/nutrition?userId=${userId}`);
+      const res = await axios.get(`${API_BASE}/nutrition?userId=${userId}`);
       const enriched = res.data.map((log) => ({
         ...log,
         ...calcTotals(log.foodItems),
@@ -84,10 +84,10 @@ export default function NutritionLogsSection() {
     setSaving(true);
     try {
       if (editingId) {
-        await axios.put(`${API_BASE}/api/nutrition/${editingId}`, payload);
+        await axios.put(`${API_BASE}/nutrition/${editingId}`, payload);
         toast.success("Log updated");
       } else {
-        await axios.post(`${API_BASE}/api/nutrition`, payload);
+        await axios.post(`${API_BASE}/nutrition`, payload);
         toast.success("Log added");
       }
       resetForm();
@@ -102,7 +102,7 @@ export default function NutritionLogsSection() {
   const deleteLog = async (id) => {
     if (!window.confirm("Delete this log?")) return;
     try {
-      await axios.delete(`${API_BASE}/api/nutrition/${id}`);
+      await axios.delete(`${API_BASE}/nutrition/${id}`);
       toast.success("Log deleted");
       fetchLogs();
     } catch (err) {
