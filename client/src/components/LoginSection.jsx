@@ -57,7 +57,7 @@ export default function LoginSection({ Loginuser }) {
         backgroundRepeat: "no-repeat",
       }}
     >
-      <Toaster position="top-right" reverseOrder={false} />
+      <Toaster position="top-right" reverseOrder={true} />
 
       <div
         className="rounded-3xl shadow-2xl p-6 bg-black/40 max-w-md w-full mx-4"
