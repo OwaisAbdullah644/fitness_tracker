@@ -101,7 +101,7 @@ const App = () => {
           <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
           <Route path="/dashboard/settings" element={<SettingsPage />} />
           <Route path="/dashboard/profile" element={<ProfilePage />} />
-          <Route path="/dashboard/notification" element={<Notification />} />
+          <Route path="/dashboard/notifications" element={<Notification />} />
         </Route>
       </Routes>
     </BrowserRouter>
