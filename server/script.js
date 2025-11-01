@@ -18,7 +18,7 @@ const User = require("./models/register");
 const Workout = require("./models/workout");
 const Progress = require("./models/progress");
 const Nutrition = require("./models/nutrition");
-
+const Notification = require("./models/notification");
 
 const app = express();
 
@@ -175,6 +175,15 @@ app.post("/workouts", authMiddleware, async (req, res) => {
       date: new Date(date),
     });
 
+    if (req.user.preferences.notifications) {
+      const newNotification = new Notification({
+        userId: req.user._id,
+        type: 'activity',
+        message: `Workout completed: ${exerciseName}`,
+      });
+      await newNotification.save();
+    }
+
     res.status(201).send(workout);
   } catch (err) {
     console.error(err);
@@ -221,6 +230,16 @@ app.post("/progress", authMiddleware, async (req, res) => {
     measurements,
     performance,
   });
+
+  if (req.user.preferences.notifications) {
+    const newNotification = new Notification({
+      userId: req.user._id,
+      type: 'activity',
+      message: `New progress logged: Weight ${weight}kg`,
+    });
+    await newNotification.save();
+  }
+
   res.status(201).send(prog);
 });
 
@@ -281,6 +300,16 @@ app.post(
       date: new Date(date),
       notes,
     });
+
+    if (req.user.preferences.notifications) {
+      const newNotification = new Notification({
+        userId: req.user._id,
+        type: 'activity',
+        message: `New nutrition log for ${mealType}`,
+      });
+      await newNotification.save();
+    }
+
     res.status(201).send(log);
   }
 );
@@ -399,11 +428,79 @@ app.get("/reports/nutrition", authMiddleware, async (req, res) => {
 // ------------------------------------------------------------------
 cron.schedule("0 8 * * *", async () => {
   console.log("Running daily meal reminder job...");
-  // TODO: integrate with Nodemailer / Push service
+  try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const users = await User.find({ "preferences.notifications": true });
+    for (const user of users) {
+      const existing = await Notification.findOne({
+        userId: user._id,
+        type: "reminder",
+        date: { $gte: todayStart },
+      });
+      if (!existing) {
+        const newNotification = new Notification({
+          userId: user._id,
+          type: "reminder",
+          message: "Daily reminder: Log your meals and workouts today!",
+        });
+        await newNotification.save();
+      }
+    }
+  } catch (err) {
+    console.error("Reminder job error:", err);
+  }
 });
 
-// ------------------------------------------------------------------
-// Start server
-// ------------------------------------------------------------------
+
+
+app.get("/notifications", authMiddleware, async (req, res) => {
+  try {
+    const notifications = await Notification
+      .find({ userId: req.user._id })
+      .sort({ date: -1 })
+      .lean();
+
+    res.json(notifications);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Removed public POST /notifications as notifications are now triggered internally
+
+app.post("/notifications/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await Notification.findOneAndUpdate(
+      { _id: id, userId: req.user._id },
+      { isRead: true },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: "Notification not found" });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.delete("/notifications/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Notification.findOneAndDelete({ _id: id, userId: req.user._id });
+
+    if (!deleted) return res.status(404).json({ message: "Notification not found" });
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

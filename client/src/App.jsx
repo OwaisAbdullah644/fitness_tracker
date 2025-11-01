@@ -15,6 +15,7 @@ import AnalyticsPage   from './Dashboard/pages/AnalyticsPage';
 import SettingsPage    from './Dashboard/pages/SettingsPage';
 import ProfilePage from './Dashboard/pages/ProfilePage';
 import toast from 'react-hot-toast';
+import Notification from './Dashboard/pages/Notification';
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -67,7 +68,7 @@ const App = () => {
     }
     window.sessionTimeout = setTimeout(() => {
       handleLogout();
-      // toast.error('Session expired. You have been logged out for security.');
+      toast.error('Session expired. You have been logged out for security.');
     }, timeoutDuration);
   };
 
@@ -100,6 +101,7 @@ const App = () => {
           <Route path="/dashboard/analytics" element={<AnalyticsPage />} />
           <Route path="/dashboard/settings" element={<SettingsPage />} />
           <Route path="/dashboard/profile" element={<ProfilePage />} />
+          <Route path="/dashboard/notification" element={<Notification />} />
         </Route>
       </Routes>
     </BrowserRouter>

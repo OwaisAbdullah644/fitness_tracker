@@ -1,14 +1,79 @@
 // src/Dashboard/components/NavbarSection.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Search, Sun, Moon } from 'lucide-react';
+import { Bell, Search, Sun, Moon, CheckCircle, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const NavbarSection = ({ user, toggleTheme, isDark }) => {
   const navigate = useNavigate();
 
-    const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; 
-  
+  const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; 
+
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/notifications?userId=${user._id}`);
+      setNotifications(res.data);
+      setUnreadCount(res.data.filter(n => !n.isRead).length);
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (user?._id) {
+      fetchNotifications();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.notification-button')) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const markAllRead = async () => {
+    try {
+      for (const notif of notifications.filter(n => !n.isRead)) {
+        await axios.post(`${API_BASE_URL}/notifications/${notif._id}`);
+      }
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to mark all read:', err);
+    }
+  };
+
+  const markRead = async (id) => {
+    try {
+      await axios.post(`${API_BASE_URL}/notifications/${id}`);
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to mark as read:', err);
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      await axios.delete(`${API_BASE_URL}/notifications/${id}`);
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to delete:', err);
+    }
+  };
 
   const handleProfileClick = () => {
     navigate('/dashboard/profile');
@@ -56,15 +121,81 @@ const NavbarSection = ({ user, toggleTheme, isDark }) => {
           )}
         </motion.button>
 
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          className="relative p-2 rounded-full card"
-          style={{ backgroundColor: 'var(--bg-card)' }}
-        >
-          <Bell className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-          <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-        </motion.button>
+        <div className="relative">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsOpen(!isOpen)}
+            className="notification-button relative p-2 rounded-full card"
+            style={{ backgroundColor: 'var(--bg-card)' }}
+          >
+            <Bell className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center px-1">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </motion.button>
+
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="absolute right-0 mt-2 w-96 bg-[var(--bg-card)] rounded-lg shadow-xl border border-[var(--border)] overflow-hidden z-50 max-h-96 overflow-y-auto"
+            >
+              <div className="p-4 border-b border-[var(--border)] flex justify-between items-center">
+                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Notifications</h3>
+                {unreadCount > 0 && (
+                  <button 
+                    onClick={markAllRead} 
+                    className="text-sm hover:underline" 
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+
+              {notifications.length === 0 ? (
+                <p className="p-4 text-center" style={{ color: 'var(--text-muted)' }}>No notifications yet</p>
+              ) : (
+                notifications.map((notif) => (
+                  <div 
+                    key={notif._id} 
+                    className={`p-4 border-b border-[var(--border)] hover:bg-[var(--bg-secondary)] flex justify-between items-start ${notif.isRead ? 'opacity-75' : ''}`}
+                  >
+                    <div>
+                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {notif.type.charAt(0).toUpperCase() + notif.type.slice(1)}: {notif.message}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {new Date(notif.date).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {!notif.isRead && (
+                        <button 
+                          onClick={() => markRead(notif._id)} 
+                          className="p-1 hover:bg-[var(--bg-card-hover)] rounded"
+                          title="Mark as read"
+                        >
+                          <CheckCircle className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => deleteNotification(notif._id)} 
+                        className="p-1 hover:bg-red-500/10 rounded"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </motion.div>
+          )}
+        </div>
 
         <motion.div
           whileHover={{ scale: 1.05 }}
