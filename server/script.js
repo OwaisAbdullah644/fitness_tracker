@@ -172,6 +172,9 @@ app.put("/profile", upload.single("profilePic"), async (req, res) => {
   }
 });
 
+// -------------------------------------------------
+// NUTRITION – plain routes (no /api)
+// -------------------------------------------------
 app.post("/nutrition", async (req, res) => {
   try {
     const { userId, mealType, foodItems, date, notes } = req.body;
@@ -186,34 +189,24 @@ app.post("/nutrition", async (req, res) => {
       notes,
     });
     await newLog.save();
-    res.status(201).json({ message: "Nutrition log created", log: newLog });
-  } catch (error) {
+    res.status(201).json({ message: "Created", log: newLog });
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
 
 app.get("/nutrition", async (req, res) => {
   try {
-    const { userId, mealType, date, page = 1, limit = 20 } = req.query;
+    const { userId } = req.query;
     if (!userId) return res.status(400).json({ message: "userId required" });
 
-    const filter = { userId };
-    if (mealType) filter.mealType = mealType;
-    if (date) {
-      const start = new Date(date);
-      const end = new Date(start);
-      end.setHours(23, 59, 59, 999);
-      filter.date = { $gte: start, $lte: end };
-    }
-
     const logs = await nutrition_model
-      .find(filter)
+      .find({ userId })
       .sort({ date: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
       .lean();
 
-    const enriched = logs.map((log) => ({
+    const enriched = logs.map(log => ({
       ...log,
       totalCalories: log.foodItems.reduce((s, i) => s + i.calories, 0),
       totalProteins: log.foodItems.reduce((s, i) => s + i.proteins, 0),
@@ -222,7 +215,8 @@ app.get("/nutrition", async (req, res) => {
     }));
 
     res.json(enriched);
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -238,7 +232,8 @@ app.put("/nutrition/:id", async (req, res) => {
     );
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -249,69 +244,10 @@ app.delete("/nutrition/:id", async (req, res) => {
     const deleted = await nutrition_model.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ message: "Not found" });
     res.json({ message: "Deleted" });
-  } catch (error) {
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Server error" });
   }
-});
-
-app.get("/analytics/nutrition", async (req, res) => {
-  try {
-    const { userId, period = "week" } = req.query;
-    if (!userId) return res.status(400).json({ message: "userId required" });
-
-    const now = new Date();
-    let start;
-    if (period === "week") start = new Date(now.setDate(now.getDate() - 7));
-    else if (period === "month") start = new Date(now.setMonth(now.getMonth() - 1));
-    else start = new Date(now.setFullYear(now.getFullYear() - 1));
-
-    const analytics = await nutrition_model.aggregate([
-      { $match: { userId, date: { $gte: start } } },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-          totalCalories: { $sum: { $sum: "$foodItems.calories" } },
-          totalProteins: { $sum: { $sum: "$foodItems.proteins" } },
-          totalCarbs: { $sum: { $sum: "$foodItems.carbs" } },
-          totalFats: { $sum: { $sum: "$foodItems.fats" } },
-          mealCount: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: -1 } },
-    ]);
-
-    res.json(analytics);
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-app.get("/reports/nutrition", async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ message: "userId required" });
-
-    const logs = await nutrition_model.find({ userId }).sort({ date: -1 }).lean();
-
-    const rows = logs.map((log) => ({
-      Date: new Date(log.date).toISOString().split("T")[0],
-      Meal: log.mealType,
-      Foods: log.foodItems.map((i) => i.name).join("; "),
-      Calories: log.foodItems.reduce((s, i) => s + i.calories, 0),
-    }));
-
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", "attachment; filename=nutrition_report.csv");
-
-    const stringifier = stringify(rows, { header: true });
-    stringifier.pipe(res);
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-cron.schedule("0 8 * * *", () => {
-  console.log("Daily meal reminder job running...");
 });
 
 app.listen(3000, () => {

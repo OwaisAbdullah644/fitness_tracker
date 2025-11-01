@@ -25,13 +25,13 @@ export default function NutritionLogsSection() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = user?._id;
 
-  const calcTotals = (items) =>
+  const calcTotals = items =>
     items.reduce(
-      (acc, i) => ({
-        totalCalories: acc.totalCalories + i.calories,
-        totalProteins: acc.totalProteins + i.proteins,
-        totalCarbs: acc.totalCarbs + i.carbs,
-        totalFats: acc.totalFats + i.fats,
+      (a, i) => ({
+        totalCalories: a.totalCalories + i.calories,
+        totalProteins: a.totalProteins + i.proteins,
+        totalCarbs: a.totalCarbs + i.carbs,
+        totalFats: a.totalFats + i.fats,
       }),
       { totalCalories: 0, totalProteins: 0, totalCarbs: 0, totalFats: 0 }
     );
@@ -55,21 +55,22 @@ export default function NutritionLogsSection() {
     }
     try {
       const res = await axios.get(`${API_BASE}/nutrition?userId=${userId}`);
-      const enriched = res.data.map((log) => ({
+      const enriched = res.data.map(log => ({
         ...log,
         ...calcTotals(log.foodItems),
       }));
       setLogs(enriched);
     } catch (err) {
-      toast.error("Failed to load nutrition logs");
+      console.error("GET /nutrition error:", err.response?.data || err);
+      toast.error("Failed to load logs");
     } finally {
       setLoading(false);
     }
   }, [userId]);
 
-  const saveLog = async (e) => {
+  const saveLog = async e => {
     e.preventDefault();
-    if (!userId) return toast.error("You must be logged in");
+    if (!userId) return toast.error("Login required");
 
     const foodItem = {
       name: foodName,
@@ -91,42 +92,44 @@ export default function NutritionLogsSection() {
     try {
       if (editingId) {
         await axios.put(`${API_BASE}/nutrition/${editingId}`, payload);
-        toast.success("Log updated");
+        toast.success("Updated");
       } else {
         await axios.post(`${API_BASE}/nutrition`, payload);
-        toast.success("Log added");
+        toast.success("Added");
       }
       resetForm();
       fetchLogs();
     } catch (err) {
+      console.error("Save error:", err.response?.data || err);
       toast.error(editingId ? "Update failed" : "Add failed");
     } finally {
       setSaving(false);
     }
   };
 
-  const deleteLog = async (id) => {
-    if (!window.confirm("Delete this log?")) return;
+  const deleteLog = async id => {
+    if (!window.confirm("Delete?")) return;
     try {
       await axios.delete(`${API_BASE}/nutrition/${id}`);
-      toast.success("Log deleted");
+      toast.success("Deleted");
       fetchLogs();
     } catch (err) {
+      console.error("Delete error:", err);
       toast.error("Delete failed");
     }
   };
 
-  const startEdit = (log) => {
+  const startEdit = log => {
     setEditingId(log._id);
     setMealType(log.mealType);
     setDate(new Date(log.date).toISOString().split("T")[0]);
-    const first = log.foodItems[0];
-    setFoodName(first.name);
-    setQuantity(first.quantity);
-    setCalories(String(first.calories));
-    setProteins(String(first.proteins));
-    setCarbs(String(first.carbs));
-    setFats(String(first.fats));
+    const f = log.foodItems[0];
+    setFoodName(f.name);
+    setQuantity(f.quantity);
+    setCalories(String(f.calories));
+    setProteins(String(f.proteins));
+    setCarbs(String(f.carbs));
+    setFats(String(f.fats));
   };
 
   useEffect(() => {
@@ -153,139 +156,29 @@ export default function NutritionLogsSection() {
       </h3>
 
       <form onSubmit={saveLog} className="grid md:grid-cols-2 gap-4 mb-6">
-        <select
-          value={mealType}
-          onChange={(e) => setMealType(e.target.value)}
-          className="p-2 rounded-md"
-          style={{
-            backgroundColor: "var(--input-bg)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
-          }}
-          required
-        >
-          {["Breakfast", "Lunch", "Dinner", "Snacks", "Other"].map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
+        <select value={mealType} onChange={e => setMealType(e.target.value)} className="p-2 rounded-md" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--border)" }} required>
+          {["Breakfast", "Lunch", "Dinner", "Snacks", "Other"].map(t => (
+            <option key={t} value={t}>{t}</option>
           ))}
         </select>
 
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="p-2 rounded-md"
-          style={{
-            backgroundColor: "var(--input-bg)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
-          }}
-          required
-        />
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="p-2 rounded-md" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--border)" }} required />
 
-        <input
-          placeholder="Food name"
-          value={foodName}
-          onChange={(e) => setFoodName(e.target.value)}
-          className="p-2 rounded-md"
-          style={{
-            backgroundColor: "var(--input-bg)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
-          }}
-          required
-        />
-        <input
-          placeholder="Quantity (e.g. 150g)"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          className="p-2 rounded-md"
-          style={{
-            backgroundColor: "var(--input-bg)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
-          }}
-          required
-        />
+        <input placeholder="Food name" value={foodName} onChange={e => setFoodName(e.target.value)} className="p-2 rounded-md" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--border)" }} required />
+        <input placeholder="Quantity (e.g. 150g)" value={quantity} onChange={e => setQuantity(e.target.value)} className="p-2 rounded-md" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--border)" }} required />
 
-        <input
-          type="number"
-          placeholder="Calories"
-          value={calories}
-          onChange={(e) => setCalories(e.target.value)}
-          className="p-2 rounded-md"
-          style={{
-            backgroundColor: "var(--input-bg)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
-          }}
-          required
-        />
-        <input
-          type="number"
-          placeholder="Proteins (g)"
-          value={proteins}
-          onChange={(e) => setProteins(e.target.value)}
-          className="p-2 rounded-md"
-          style={{
-            backgroundColor: "var(--input-bg)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
-          }}
-          required
-        />
-        <input
-          type="number"
-          placeholder="Carbs (g)"
-          value={carbs}
-          onChange={(e) => setCarbs(e.target.value)}
-          className="p-2 rounded-md"
-          style={{
-            backgroundColor: "var(--input-bg)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
-          }}
-          required
-        />
-        <input
-          type="number"
-          placeholder="Fats (g)"
-          value={fats}
-          onChange={(e) => setFats(e.target.value)}
-          className="p-2 rounded-md"
-          style={{
-            backgroundColor: "var(--input-bg)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
-          }}
-          required
-        />
+        <input type="number" placeholder="Calories" value={calories} onChange={e => setCalories(e.target.value)} className="p-2 rounded-md" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--border)" }} required />
+        <input type="number" placeholder="Proteins (g)" value={proteins} onChange={e => setProteins(e.target.value)} className="p-2 rounded-md" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--border)" }} required />
+        <input type="number" placeholder="Carbs (g)" value={carbs} onChange={e => setCarbs(e.target.value)} className="p-2 rounded-md" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--border)" }} required />
+        <input type="number" placeholder="Fats (g)" value={fats} onChange={e => setFats(e.target.value)} className="p-2 rounded-md" style={{ backgroundColor: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--border)" }} required />
 
         <div className="md:col-span-2 flex gap-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 rounded-md font-medium text-white"
-            style={{ backgroundColor: "var(--accent)" }}
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : editingId ? (
-              <Edit2 className="w-4 h-4" />
-            ) : (
-              <Plus className="w-4 h-4" />
-            )}
+          <button type="submit" disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-md font-medium text-white" style={{ backgroundColor: "var(--accent)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : editingId ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
             {saving ? "Saving…" : editingId ? "Update" : "Add"}
           </button>
-
           {editingId && (
-            <button
-              type="button"
-              onClick={resetForm}
-              className="px-4 py-2 rounded-md font-medium"
-              style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}
-            >
+            <button type="button" onClick={resetForm} className="px-4 py-2 rounded-md font-medium" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
               Cancel
             </button>
           )}
@@ -296,33 +189,15 @@ export default function NutritionLogsSection() {
         <table className="min-w-full divide-y" style={{ borderColor: "var(--border)" }}>
           <thead style={{ backgroundColor: "var(--bg-secondary)" }}>
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Meal
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Food
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Qty
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Cal
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                P
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                C
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                F
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Date
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Actions
-              </th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Meal</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Food</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Qty</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Cal</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>P</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>C</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>F</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Date</th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -333,40 +208,22 @@ export default function NutritionLogsSection() {
                 </td>
               </tr>
             ) : (
-              logs.map((log) => (
+              logs.map(log => (
                 <tr key={log._id} className="hover:bg-[var(--bg-card-hover)] transition">
-                  <td className="px-4 py-3 text-sm" style={{ color: "var(--text-primary)" }}>
-                    {log.mealType}
-                  </td>
-                  <td className="px-4 py-3 text-sm" style={{ color: "var(--text-primary)" }}>
-                    {log.foodItems.map((i) => i.name).join(", ")}
-                  </td>
-                  <td className="px-4 py-3 text-sm" style={{ color: "var(--text-primary)" }}>
-                    {log.foodItems.map((i) => i.quantity).join(", ")}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium" style={{ color: "var(--accent)" }}>
-                    {log.totalCalories}
-                  </td>
+                  <td className="px-4 py-3 text-sm" style={{ color: "var(--text-primary)" }}>{log.mealType}</td>
+                  <td className="px-4 py-3 text-sm" style={{ color: "var(--text-primary)" }}>{log.foodItems.map(i => i.name).join(", ")}</td>
+                  <td className="px-4 py-3 text-sm" style={{ color: "var(--text-primary)" }}>{log.foodItems.map(i => i.quantity).join(", ")}</td>
+                  <td className="px-4 py-3 text-sm font-medium" style={{ color: "var(--accent)" }}>{log.totalCalories}</td>
                   <td className="px-4 py-3 text-sm">{log.totalProteins}</td>
                   <td className="px-4 py-3 text-sm">{log.totalCarbs}</td>
                   <td className="px-4 py-3 text-sm">{log.totalFats}</td>
-                  <td className="px-4 py-3 text-sm" style={{ color: "var(--text-muted)" }}>
-                    {new Date(log.date).toLocaleDateString()}
-                  </td>
+                  <td className="px-4 py-3 text-sm" style={{ color: "var(--text-muted)" }}>{new Date(log.date).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-sm">
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => startEdit(log)}
-                        className="p-1 rounded hover:bg-[var(--bg-secondary)]"
-                        title="Edit"
-                      >
+                      <button onClick={() => startEdit(log)} className="p-1 rounded hover:bg-[var(--bg-secondary)]" title="Edit">
                         <Edit2 className="w-4 h-4" style={{ color: "var(--accent)" }} />
                       </button>
-                      <button
-                        onClick={() => deleteLog(log._id)}
-                        className="p-1 rounded hover:bg-red-500/10"
-                        title="Delete"
-                      >
+                      <button onClick={() => deleteLog(log._id)} className="p-1 rounded hover:bg-red-500/10" title="Delete">
                         <Trash2 className="w-4 h-4 text-red-500" />
                       </button>
                     </div>
