@@ -81,7 +81,7 @@ const NavbarSection = ({ user, toggleTheme, isDark }) => {
 
   const profileImageUrl = user?.profilePic 
     ? `${API_BASE_URL}/uploads/${user.profilePic}` 
-    : 'https://via.placeholder.com/40';
+    : '';
 
   return (
     <motion.header
@@ -209,7 +209,7 @@ const NavbarSection = ({ user, toggleTheme, isDark }) => {
               alt="Profile"
               className="w-10 h-10 rounded-full object-cover ring-2 ring-[var(--accent)]/30 shadow-md"
               onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/40';
+                e.target.src = '';
               }}
             />
             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[var(--bg-card-hover)]"></div>

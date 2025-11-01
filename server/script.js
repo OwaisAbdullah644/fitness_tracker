@@ -1,14 +1,10 @@
 const express = require("express");
 const cors = require("cors");
-const helmet = require("helmet");
-const morgan = require("morgan");
-const rateLimit = require("express-rate-limit");
 const path = require("path");
 const multer = require("multer");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const cron = require("node-cron");
-const { StringDecoder } = require("string_decoder");
 const { stringify } = require("csv-stringify");
 
 const connectDb = require("./config/connectDb");
@@ -22,16 +18,8 @@ const Notification = require("./models/notification");
 
 const app = express();
 
-app.use(helmet());
-app.use(cors());
-app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-});
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -44,18 +32,6 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage });
-
-
-const authMiddleware = async (req, res, next) => {
-  const { userId } = req.body || req.query;
-  if (!userId) return res.status(401).send({ message: "userId required" });
-
-  const user = await User.findById(userId);
-  if (!user) return res.status(401).send({ message: "Invalid user" });
-
-  req.user = user;
-  next();
-};
 
 
 app.post("/register", upload.single("profilePic"), async (req, res) => {
@@ -107,18 +83,26 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.get("/profile", authMiddleware, async (req, res) => {
-  const { _id, name, email, image } = req.user;
+app.get("/profile", async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
+  const user = await User.findById(userId);
+  if (!user) return res.status(401).send({ message: "Invalid user" });
+
+  const { _id, name, email, image } = user;
   res.send({ _id, name, email, image });
 });
 
-app.post("/profile", authMiddleware, upload.single("profilePic"), async (req, res) => {
+app.post("/profile", upload.single("profilePic"), async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { userId, name, email } = req.body;
+    if (!userId) return res.status(401).send({ message: "userId required" });
+
     const update = { name, email };
     if (req.file) update.image = req.file.filename;
 
-    const updated = await User.findByIdAndUpdate(req.user._id, update, {
+    const updated = await User.findByIdAndUpdate(userId, update, {
       new: true,
     }).select("name email image");
 
@@ -130,14 +114,22 @@ app.post("/profile", authMiddleware, upload.single("profilePic"), async (req, re
 });
 
 
-app.get("/preferences", authMiddleware, async (req, res) => {
-  res.send(req.user.preferences);
+app.get("/preferences", async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
+  const user = await User.findById(userId);
+  if (!user) return res.status(401).send({ message: "Invalid user" });
+
+  res.send(user.preferences);
 });
 
-app.post("/preferences", authMiddleware, async (req, res) => {
-  const { notifications, units, theme } = req.body;
+app.post("/preferences", async (req, res) => {
+  const { userId, notifications, units, theme } = req.body;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
   const updated = await User.findByIdAndUpdate(
-    req.user._id,
+    userId,
     {
       "preferences.notifications": notifications,
       "preferences.units": units,
@@ -150,9 +142,10 @@ app.post("/preferences", authMiddleware, async (req, res) => {
 });
 
 
-app.post("/workouts", authMiddleware, async (req, res) => {
+app.post("/workouts", async (req, res) => {
   try {
     const {
+      userId,
       exerciseName,
       sets,
       reps,
@@ -164,7 +157,7 @@ app.post("/workouts", authMiddleware, async (req, res) => {
     } = req.body;
 
     const workout = await Workout.create({
-      userId: req.user._id,
+      userId,
       exerciseName,
       sets,
       reps,
@@ -175,9 +168,10 @@ app.post("/workouts", authMiddleware, async (req, res) => {
       date: new Date(date),
     });
 
-    if (req.user.preferences.notifications) {
+    const user = await User.findById(userId);
+    if (user && user.preferences.notifications) {
       const newNotification = new Notification({
-        userId: req.user._id,
+        userId,
         type: 'activity',
         message: `Workout completed: ${exerciseName}`,
       });
@@ -191,9 +185,11 @@ app.post("/workouts", authMiddleware, async (req, res) => {
   }
 });
 
-app.get("/workouts", authMiddleware, async (req, res) => {
-  const { page = 1, limit = 20 } = req.query;
-  const workouts = await Workout.find({ userId: req.user._id })
+app.get("/workouts", async (req, res) => {
+  const { userId, page = 1, limit = 20 } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
+  const workouts = await Workout.find({ userId })
     .sort({ date: -1 })
     .limit(+limit)
     .skip((+page - 1) * +limit)
@@ -201,9 +197,12 @@ app.get("/workouts", authMiddleware, async (req, res) => {
   res.send(workouts);
 });
 
-app.post("/workouts/:id", authMiddleware, async (req, res) => {
+app.post("/workouts/:id", async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
   const workout = await Workout.findOneAndUpdate(
-    { _id: req.params.id, userId: req.user._id },
+    { _id: req.params.id, userId },
     req.body,
     { new: true }
   );
@@ -211,29 +210,33 @@ app.post("/workouts/:id", authMiddleware, async (req, res) => {
   res.send(workout);
 });
 
-app.delete("/workouts/:id", authMiddleware, async (req, res) => {
+app.delete("/workouts/:id", async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
   const workout = await Workout.findOneAndDelete({
     _id: req.params.id,
-    userId: req.user._id,
+    userId,
   });
   if (!workout) return res.status(404).send({ message: "Not found" });
   res.send({ message: "Deleted" });
 });
 
 
-app.post("/progress", authMiddleware, async (req, res) => {
-  const { date, weight, measurements, performance } = req.body;
+app.post("/progress", async (req, res) => {
+  const { userId, date, weight, measurements, performance } = req.body;
   const prog = await Progress.create({
-    userId: req.user._id,
+    userId,
     date: new Date(date),
     weight,
     measurements,
     performance,
   });
 
-  if (req.user.preferences.notifications) {
+  const user = await User.findById(userId);
+  if (user && user.preferences.notifications) {
     const newNotification = new Notification({
-      userId: req.user._id,
+      userId,
       type: 'activity',
       message: `New progress logged: Weight ${weight}kg`,
     });
@@ -243,16 +246,22 @@ app.post("/progress", authMiddleware, async (req, res) => {
   res.status(201).send(prog);
 });
 
-app.get("/progress", authMiddleware, async (req, res) => {
-  const entries = await Progress.find({ userId: req.user._id })
+app.get("/progress", async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
+  const entries = await Progress.find({ userId })
     .sort({ date: 1 })
     .lean();
   res.send(entries);
 });
 
-app.post("/progress/:id", authMiddleware, async (req, res) => {
+app.post("/progress/:id", async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
   const prog = await Progress.findOneAndUpdate(
-    { _id: req.params.id, userId: req.user._id },
+    { _id: req.params.id, userId },
     req.body,
     { new: true }
   );
@@ -260,18 +269,21 @@ app.post("/progress/:id", authMiddleware, async (req, res) => {
   res.send(prog);
 });
 
-app.delete("/progress/:id", authMiddleware, async (req, res) => {
+app.delete("/progress/:id", async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
   const prog = await Progress.findOneAndDelete({
     _id: req.params.id,
-    userId: req.user._id,
+    userId,
   });
   if (!prog) return res.status(404).send({ message: "Not found" });
   res.send({ message: "Deleted" });
 });
 
 
-const validateNutrition = (req, res, next) => {
-  const { mealType, foodItems, date } = req.body;
+app.post("/nutrition", async (req, res) => {
+  const { userId, mealType, foodItems, date, notes } = req.body;
   if (!mealType || !Array.isArray(foodItems) || foodItems.length === 0 || !date)
     return res.status(400).send({ message: "Missing required fields" });
 
@@ -284,40 +296,33 @@ const validateNutrition = (req, res, next) => {
     )
       return res.status(400).send({ message: "Invalid food item" });
   }
-  next();
-};
 
-app.post(
-  "/nutrition",
-  authMiddleware,
-  validateNutrition,
-  async (req, res) => {
-    const { mealType, foodItems, date, notes } = req.body;
-    const log = await Nutrition.create({
-      userId: req.user._id,
-      mealType,
-      foodItems,
-      date: new Date(date),
-      notes,
+  const log = await Nutrition.create({
+    userId,
+    mealType,
+    foodItems,
+    date: new Date(date),
+    notes,
+  });
+
+  const user = await User.findById(userId);
+  if (user && user.preferences.notifications) {
+    const newNotification = new Notification({
+      userId,
+      type: 'activity',
+      message: `New nutrition log for ${mealType}`,
     });
-
-    if (req.user.preferences.notifications) {
-      const newNotification = new Notification({
-        userId: req.user._id,
-        type: 'activity',
-        message: `New nutrition log for ${mealType}`,
-      });
-      await newNotification.save();
-    }
-
-    res.status(201).send(log);
+    await newNotification.save();
   }
-);
 
-app.get("/nutrition", authMiddleware, async (req, res) => {
-  const { page = 1, limit = 20, mealType, date } = req.query;
+  res.status(201).send(log);
+});
 
-  const filter = { userId: req.user._id };
+app.get("/nutrition", async (req, res) => {
+  const { userId, page = 1, limit = 20, mealType, date } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
+  const filter = { userId };
   if (mealType) filter.mealType = mealType;
   if (date) {
     const start = new Date(date);
@@ -343,33 +348,48 @@ app.get("/nutrition", authMiddleware, async (req, res) => {
   res.send(enriched);
 });
 
-app.post(
-  "/nutrition/:id",
-  authMiddleware,
-  validateNutrition,
-  async (req, res) => {
-    const log = await Nutrition.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user._id },
-      req.body,
-      { new: true }
-    );
-    if (!log) return res.status(404).send({ message: "Not found" });
-    res.send(log);
-  }
-);
+app.post("/nutrition/:id", async (req, res) => {
+  const { userId, mealType, foodItems, date, notes } = req.body;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+  if (!mealType || !Array.isArray(foodItems) || foodItems.length === 0 || !date)
+    return res.status(400).send({ message: "Missing required fields" });
 
-app.delete("/nutrition/:id", authMiddleware, async (req, res) => {
+  for (const i of foodItems) {
+    if (
+      !i.name ||
+      !i.quantity ||
+      typeof i.calories !== "number" ||
+      i.calories < 0
+    )
+      return res.status(400).send({ message: "Invalid food item" });
+  }
+
+  const log = await Nutrition.findOneAndUpdate(
+    { _id: req.params.id, userId },
+    { mealType, foodItems, date: new Date(date), notes },
+    { new: true }
+  );
+  if (!log) return res.status(404).send({ message: "Not found" });
+  res.send(log);
+});
+
+app.delete("/nutrition/:id", async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
   const log = await Nutrition.findOneAndDelete({
     _id: req.params.id,
-    userId: req.user._id,
+    userId,
   });
   if (!log) return res.status(404).send({ message: "Not found" });
   res.send({ message: "Deleted" });
 });
 
 // ---------- Analytics ----------
-app.get("/analytics/nutrition", authMiddleware, async (req, res) => {
-  const { period = "week" } = req.query;
+app.get("/analytics/nutrition", async (req, res) => {
+  const { userId, period = "week" } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
+
   const now = new Date();
   let start;
 
@@ -379,7 +399,7 @@ app.get("/analytics/nutrition", authMiddleware, async (req, res) => {
   else start = new Date(now.setFullYear(now.getFullYear() - 1));
 
   const data = await Nutrition.aggregate([
-    { $match: { userId: req.user._id, date: { $gte: start } } },
+    { $match: { userId: new mongoose.Types.ObjectId(userId), date: { $gte: start } } },
     {
       $group: {
         _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
@@ -397,12 +417,13 @@ app.get("/analytics/nutrition", authMiddleware, async (req, res) => {
 });
 
 // ---------- CSV Report ----------
-app.get("/reports/nutrition", authMiddleware, async (req, res) => {
-  const { format = "csv" } = req.query;
+app.get("/reports/nutrition", async (req, res) => {
+  const { userId, format = "csv" } = req.query;
+  if (!userId) return res.status(401).send({ message: "userId required" });
   if (format !== "csv")
     return res.status(400).send({ message: "Only CSV supported" });
 
-  const logs = await Nutrition.find({ userId: req.user._id })
+  const logs = await Nutrition.find({ userId })
     .sort({ date: -1 })
     .lean();
 
@@ -455,10 +476,13 @@ cron.schedule("0 8 * * *", async () => {
 
 
 
-app.get("/notifications", authMiddleware, async (req, res) => {
+app.get("/notifications", async (req, res) => {
   try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).send({ message: "userId required" });
+
     const notifications = await Notification
-      .find({ userId: req.user._id })
+      .find({ userId })
       .sort({ date: -1 })
       .lean();
 
@@ -469,11 +493,14 @@ app.get("/notifications", authMiddleware, async (req, res) => {
   }
 });
 
-app.post("/notifications/:id", authMiddleware, async (req, res) => {
+app.post("/notifications/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const { userId } = req.body;
+    if (!userId) return res.status(400).send({ message: "userId required" });
+
     const updated = await Notification.findOneAndUpdate(
-      { _id: id, userId: req.user._id },
+      { _id: id, userId },
       { isRead: true },
       { new: true }
     );
@@ -486,10 +513,13 @@ app.post("/notifications/:id", authMiddleware, async (req, res) => {
   }
 });
 
-app.delete("/notifications/:id", authMiddleware, async (req, res) => {
+app.delete("/notifications/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await Notification.findOneAndDelete({ _id: id, userId: req.user._id });
+    const { userId } = req.query;
+    if (!userId) return res.status(400).send({ message: "userId required" });
+
+    const deleted = await Notification.findOneAndDelete({ _id: id, userId });
 
     if (!deleted) return res.status(404).send({ message: "Notification not found" });
     res.send({ message: "Deleted" });
