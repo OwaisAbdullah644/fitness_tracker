@@ -5,8 +5,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { Trash2, Edit2, Plus, Loader2 } from "lucide-react";
 
-
-const API_BASE = `https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app`;
+const API_BASE = "https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app";
 
 export default function NutritionLogsSection() {
   const [logs, setLogs] = useState([]);
@@ -26,12 +25,16 @@ export default function NutritionLogsSection() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = user?._id;
 
-  const calcTotals = (items) => ({
-    totalCalories: items.reduce((s, i) => s + i.calories, 0),
-    totalProteins: items.reduce((s, i) => s + i.proteins, 0),
-    totalCarbs: items.reduce((s, i) => s + i.carbs, 0),
-    totalFats: items.reduce((s, i) => s + i.fats, 0),
-  });
+  const calcTotals = (items) =>
+    items.reduce(
+      (acc, i) => ({
+        totalCalories: acc.totalCalories + i.calories,
+        totalProteins: acc.totalProteins + i.proteins,
+        totalCarbs: acc.totalCarbs + i.carbs,
+        totalFats: acc.totalFats + i.fats,
+      }),
+      { totalCalories: 0, totalProteins: 0, totalCarbs: 0, totalFats: 0 }
+    );
 
   const resetForm = () => {
     setMealType("Breakfast");
@@ -46,7 +49,10 @@ export default function NutritionLogsSection() {
   };
 
   const fetchLogs = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     try {
       const res = await axios.get(`${API_BASE}/nutrition?userId=${userId}`);
       const enriched = res.data.map((log) => ({
@@ -114,7 +120,6 @@ export default function NutritionLogsSection() {
     setEditingId(log._id);
     setMealType(log.mealType);
     setDate(new Date(log.date).toISOString().split("T")[0]);
-
     const first = log.foodItems[0];
     setFoodName(first.name);
     setQuantity(first.quantity);
