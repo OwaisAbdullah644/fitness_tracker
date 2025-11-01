@@ -1,3 +1,4 @@
+// src/Dashboard/components/ProfileSection.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
@@ -13,6 +14,7 @@ const ProfileSection = () => {
   const [loading, setLoading] = useState(true);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = user._id;
+  const API_BASE_URL = 'https://exotic-felipa-studentofsoftware-ceffa507.koyeb.app'; // Use env var in production: process.env.REACT_APP_API_URL
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -22,9 +24,9 @@ const ProfileSection = () => {
         return;
       }
       try {
-        const res = await axios.get(`http://localhost:3000/profile?userId=${userId}`);
+        const res = await axios.get(`${API_BASE_URL}/profile?userId=${userId}`);
         setProfile(res.data);
-        setPreview(res.data.image ? `http://localhost:3000/uploads/${res.data.image}` : null);
+        setPreview(res.data.image ? `${API_BASE_URL}/uploads/${res.data.image}` : null);
       } catch (err) {
         toast.error('Failed to load profile');
       } finally {
@@ -60,11 +62,11 @@ const ProfileSection = () => {
       formData.append('profilePic', e.target.profilePic.files[0]);
     }
     try {
-      const res = await axios.put('http://localhost:3000/profile', formData, {
+      const res = await axios.put(`${API_BASE_URL}/profile`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setProfile(res.data);
-      setPreview(res.data.image ? `http://localhost:3000/uploads/${res.data.image}` : null);
+      setPreview(res.data.image ? `${API_BASE_URL}/uploads/${res.data.image}` : null);
       localStorage.setItem('user', JSON.stringify({ ...user, name: res.data.name, profilePic: res.data.image }));
       toast.success('Profile updated!');
     } catch (err) {
@@ -85,7 +87,7 @@ const ProfileSection = () => {
       <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6 mb-6">
         <div className="relative">
           <img
-            src={preview}
+            src={preview || 'https://via.placeholder.com/150'}
             alt="Profile"
             className="w-32 h-32 rounded-full object-cover ring-2 ring-[var(--accent)]/20"
           />
