@@ -20,7 +20,7 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const SESSION_TIMEOUT = 5 * 1000; 
+  const SESSION_TIMEOUT = 30 * 60 * 1000; 
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
