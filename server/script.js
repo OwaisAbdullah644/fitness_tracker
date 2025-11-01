@@ -462,10 +462,10 @@ app.get("/notifications", authMiddleware, async (req, res) => {
       .sort({ date: -1 })
       .lean();
 
-    res.json(notifications);
+    res.send(notifications);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -480,11 +480,11 @@ app.post("/notifications/:id", authMiddleware, async (req, res) => {
       { new: true }
     );
 
-    if (!updated) return res.status(404).json({ message: "Notification not found" });
-    res.json(updated);
+    if (!updated) return res.status(404).send({ message: "Notification not found" });
+    res.send(updated);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
@@ -493,11 +493,11 @@ app.delete("/notifications/:id", authMiddleware, async (req, res) => {
     const { id } = req.params;
     const deleted = await Notification.findOneAndDelete({ _id: id, userId: req.user._id });
 
-    if (!deleted) return res.status(404).json({ message: "Notification not found" });
-    res.json({ message: "Deleted" });
+    if (!deleted) return res.status(404).send({ message: "Notification not found" });
+    res.send({ message: "Deleted" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).send({ message: "Server error" });
   }
 });
 
